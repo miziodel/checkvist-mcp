@@ -1,3 +1,9 @@
+---
+version: 1.0.0
+last_modified: 2026-01-28
+status: active
+---
+
 # Ispirazione dal Server MCP di ClickUp per Checkvist
 
 ClickUp è "un'app per sostituirle tutte". Il suo server MCP deve gestire un'enorme quantità di metadati. Per Checkvist, questo significa passare da una "semplice lista" a un "sistema di gestione operativa".

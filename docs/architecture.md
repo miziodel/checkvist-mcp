@@ -1,3 +1,9 @@
+---
+version: 1.0.0
+last_modified: 2026-01-28
+status: active
+---
+
 # Checkvist MCP Server: Architettura Visionaria
 
 Questo documento è il punto di riferimento per lo sviluppo del server MCP. Unisce la struttura degli outliner, la flessibilità dei knowledge graph e l'efficienza dei tool di sviluppo.

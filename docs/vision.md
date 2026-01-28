@@ -1,3 +1,9 @@
+---
+version: 1.0.0
+last_modified: 2026-01-28
+status: active
+---
+
 # 🎯 Checkvist MCP: The "Productivity OS" Vision
 
 ## Slide 1: I 4 Pilastri dell'Ispirazione
@@ -31,7 +37,15 @@ Il server non è un passacarte. È un Agente Operativo.
 
 Semplice, Veloce, Stateless.
 
-- **Core:** TypeScript (Node.js) + SDK MCP Ufficiale.
+- **Core:** Python 3.13 + [FastMCP](https://github.com/jlowin/fastmcp).
 - **Auth:** Checkvist Open API (Basic Auth / API Key).
-- **Speed:** Caching locale leggero dei nomi delle liste (per non chiamare l'API ad ogni respiro).
-- **Format:** Markdown nativo per input/output (Checkvist lo ama).
+- **Speed:** Caching locale leggero dei nomi delle liste.
+- **Format:** Markdown nativo per input/output.
+
+---
+
+## Documentazione Correlata
+- [Architecture](architecture.md)
+- [Risks & Mitigation](risks.md)
+- [Use Cases](use-cases.md)
+- [Market Analysis](analysis/notion.md)

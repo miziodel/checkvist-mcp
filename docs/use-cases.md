@@ -1,3 +1,9 @@
+---
+version: 1.0.0
+last_modified: 2026-01-28
+status: active
+---
+
 # Casi d'Uso Fondamentali per un Server MCP basato su Checkvist
 
 L'obiettivo di un server MCP per Checkvist è trasformare un outliner gerarchico in una estensione della memoria del modello IA, permettendogli di agire come un assistente operativo che conosce i tuoi progetti e le tue idee.

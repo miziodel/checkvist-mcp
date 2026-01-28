@@ -1,3 +1,9 @@
+---
+version: 1.0.0
+last_modified: 2026-01-28
+status: active
+---
+
 # Ispirazione dal Server MCP di Notion per Checkvist
 
 Analizzando come il protocollo MCP interagisce con Notion, ecco le "best practice" e le funzionalità da importare nel design di un server per Checkvist.

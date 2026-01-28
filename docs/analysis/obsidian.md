@@ -1,3 +1,9 @@
+---
+version: 1.0.0
+last_modified: 2026-01-28
+status: active
+---
+
 # Ispirazione dal Server MCP di Obsidian per Checkvist
 
 Obsidian è l'unione tra un file system e una rete di pensieri. Per Checkvist, questo si traduce nel trattare le liste non solo come "compiti", ma come una vera base di conoscenza.

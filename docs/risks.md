@@ -1,3 +1,9 @@
+---
+version: 1.0.0
+last_modified: 2026-01-28
+status: active
+---
+
 # 🧨 Checkvist MCP: Cosa potrebbe andare storto? (Analisi "Fuori dalla Scatola")
 
 Dobbiamo guardare oltre i bug di codice e analizzare i fallimenti sistemici, logici e di usabilità.
