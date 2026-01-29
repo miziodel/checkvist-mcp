@@ -79,19 +79,72 @@ class CheckvistClient:
         response.raise_for_status()
         return response.json()
 
+    async def get_task(self, list_id: int, task_id: int):
+        """ Get a specific task. """
+        response = await self.client.get(f"/checklists/{list_id}/tasks/{task_id}.json")
+        response.raise_for_status()
+        return response.json()
+
+    async def get_task_breadcrumbs(self, list_id: int, task_id: int):
+        """ Get the breadcrumb path for a task. 
+            Note: This fetches the whole list to build the tree efficiently.
+        """
+        # Fetch all tasks in list to build tree
+        # This is heavy but necessary for accurate breadcrumbs without N+1 API calls
+        all_tasks = await self.get_tasks(list_id)
+        
+        # Build map
+        task_map = {t['id']: t for t in all_tasks}
+        
+        if task_id not in task_map:
+            raise ValueError(f"Task {task_id} not found in list {list_id}")
+            
+        breadcrumbs = []
+        current = task_map[task_id]
+        
+        while current:
+            breadcrumbs.insert(0, current['content'])
+            parent_id = current.get('parent_id')
+            if parent_id and parent_id in task_map:
+                current = task_map[parent_id]
+            else:
+                current = None
+                
+        return " > ".join(breadcrumbs)
+
+    async def move_task(self, list_id: int, task_id: int, parent_id: int):
+        """ Move a task to a new parent within the same list. """
+        data = {"task[parent_id]": parent_id}
+        response = await self.client.put(f"/checklists/{list_id}/tasks/{task_id}.json", params=data)
+        response.raise_for_status()
+        return response.json()
+
     async def search_tasks(self, query: str):
-        """ Search for tasks across all lists by content. """
+        """ Search for tasks using Checkvist's search logic where possible, 
+            or a safer iteration.
+            
+            WARNING: This is still expensive if many lists exist.
+            Added rate limiting protection (simple sleep).
+        """
+        import asyncio
         checklists = await self.get_checklists()
         all_matches = []
+        
         for cl in checklists:
-            tasks = await self.get_tasks(cl["id"])
-            for task in tasks:
-                if query.lower() in task.get("content", "").lower():
-                    # Add list info to task for context
-                    task["list_name"] = cl["name"]
-                    task["list_id"] = cl["id"]
-                    all_matches.append(task)
-        return all_matches
+            # Simple rate limit prevention
+            await asyncio.sleep(0.1) 
+            try:
+                tasks = await self.get_tasks(cl["id"])
+                for task in tasks:
+                    if query.lower() in task.get("content", "").lower():
+                        task["list_name"] = cl["name"]
+                        task["list_id"] = cl["id"]
+                        all_matches.append(task)
+            except Exception as e:
+                logger.error(f"Failed to search list {cl['id']}: {e}")
+                
+        # Limit results to avoid token explosion
+        return all_matches[:20]
 
     async def close(self):
         await self.client.aclose()
