@@ -42,9 +42,9 @@ The project is structured to be "Documentation First". Start here:
 
 ```bash
 # 1. Clone & Setup
-git clone <repo_url>
+git clone git@github.com:miziodel/checkvist-mcp.git
 cd checkvist-mcp
-python3 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 
 # 2. Install Dependencies
@@ -55,11 +55,15 @@ cp .env.example .env
 # Edit .env and add your CHECKVIST_USERNAME and CHECKVIST_API_KEY
 ```
 
+> [!IMPORTANT]
+> **Mandatory Virtual Environment**: All commands MUST be run with the virtual environment activated. 
+> The Antigravity agent is configured to always use `source .venv/bin/activate && <command>` to ensure consistency and avoid "command not found" errors.
+
 ### Running the Server
 
 ```bash
-# Development Mode
-mcp dev src/server.py
+# Development Mode (Active venv required)
+source .venv/bin/activate && fastmcp dev src/server.py
 ```
 
 ## 🧩 Features (WIP)
