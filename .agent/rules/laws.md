@@ -13,3 +13,4 @@ trigger: always_on
 7. **Relative Documentation Links**: All internal links between `.md` files must use relative paths. Absolute paths or `file://` URIs are prohibited to ensure portability.
 8. **Secrets Sanctity**: NEVER attempt to read, print, or access the content of `.env` files or any other secret configuration files. Refer to secrets only by their environment variable names.
 9. **Global Workflow Discovery**: If a requested workflow (e.g., via a slash command) is not found in the local `.agent/workflows/` directory, the agent MUST search in the global directory `~/.gemini/antigravity/global_workflows/` before reporting it as missing.
+10. **Terminal Escalation for Permissions**: If any command fails with 'Operation not permitted' or 'Permission denied' due to environment restrictions (e.g., executing binaries from `.venv`), the Agent MUST stop and provide the full command for the USER to execute manually.
