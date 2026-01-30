@@ -3,8 +3,8 @@ import asyncio
 from mcp.server.fastmcp import FastMCP
 from src.client import CheckvistClient
 from dotenv import load_dotenv
-
-load_dotenv()
+from pathlib import Path
+load_dotenv(dotenv_path=Path(__file__).parent.parent / '.env')
 
 # Initialize FastMCP server
 mcp = FastMCP("Checkvist")

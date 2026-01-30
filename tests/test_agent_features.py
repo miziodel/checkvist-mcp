@@ -3,8 +3,8 @@ import os
 from unittest.mock import MagicMock, patch, AsyncMock
 from httpx import Response
 import respx
-from client import CheckvistClient
-from server import triage_inbox, get_tree, resurface_ideas, move_task_tool
+from src.client import CheckvistClient
+from src.server import triage_inbox, get_tree, resurface_ideas, move_task_tool
 
 # --- Client Tests ---
 
@@ -53,7 +53,7 @@ async def test_triage_inbox():
         {"id": 11, "content": "Done task", "status": 1} # Should be ignored
     ])
     
-    with patch("server.get_client", return_value=mock_client):
+    with patch("src.server.get_client", return_value=mock_client):
         result = await triage_inbox()
         assert "Keep me" in result
         assert "Done task" not in result
@@ -70,7 +70,7 @@ async def test_get_tree_depth():
     ]
     mock_client.get_tasks = AsyncMock(return_value=tasks)
     
-    with patch("server.get_client", return_value=mock_client):
+    with patch("src.server.get_client", return_value=mock_client):
         # Test Depth 1 (Root only)
         res1 = await get_tree("100", depth=1)
         assert "Root" in res1
@@ -91,7 +91,7 @@ async def test_resurface_ideas():
         {"id": 10, "content": "Forgotten Idea", "status": 0}
     ])
     
-    with patch("server.get_client", return_value=mock_client):
+    with patch("src.server.get_client", return_value=mock_client):
         with patch("random.shuffle"): # Deterministic
             result = await resurface_ideas()
             assert "Forgotten Idea" in result

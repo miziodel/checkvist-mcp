@@ -1,7 +1,7 @@
 import pytest
 import respx
 from httpx import Response
-from client import CheckvistClient
+from src.client import CheckvistClient
 
 @pytest.mark.asyncio
 async def test_authenticate_success():

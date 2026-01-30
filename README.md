@@ -33,6 +33,7 @@ The project is structured to be "Documentation First". Start here:
 -   **[Functional Scenarios](tests/SCENARIOS.md)**: Gherkin-style walkthrough of every feature.
 -   **[Human Testing Playbook](tests/PLAYBOOK.md)**: Manual scenarios for "Vibe Checking".
 -   **[Verification Guide](tests/VERIFICATION_GUIDE.md)**: How we test (TDD + Stateful Mocks).
+-   **[Client Setup Guide](docs/client_setup.md)**: How to configure the server in your LLM client.
 
 ## 🛠️ Quick Start
 
@@ -68,6 +69,12 @@ cp .env.example .env
 # Development Mode (Active venv required)
 source .venv/bin/activate && fastmcp dev src/server.py
 ```
+
+### 🔌 Client Integration
+
+To use this server in **Antigravity**, you can add it directly via the **Settings > MCP** menu.
+
+See the **[Client Setup Guide](docs/client_setup.md)** for a ready-to-use JSON snippet and detailed instructions.
 
 ## 🧩 Features (WIP)
 
