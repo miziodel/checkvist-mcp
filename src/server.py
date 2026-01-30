@@ -1,7 +1,7 @@
 import os
 import asyncio
 from mcp.server.fastmcp import FastMCP
-from client import CheckvistClient
+from src.client import CheckvistClient
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,6 +21,23 @@ def get_client():
             raise ValueError("CHECKVIST_USERNAME and CHECKVIST_API_KEY environment variables are required")
         client = CheckvistClient(username, api_key)
     return client
+
+@mcp.tool()
+async def search_list(query: str) -> str:
+    """ Search for a checklist by name (fuzzy match). 
+        Returns ID and Name of matching lists.
+    """
+    c = get_client()
+    if not c.token:
+        await c.authenticate()
+        
+    lists = await c.get_checklists()
+    matches = [l for l in lists if query.lower() in l['name'].lower()]
+    
+    if not matches:
+        return f"No lists found matching '{query}'"
+        
+    return "\n".join([f"- {l['name']} (ID: {l['id']})" for l in matches])
 
 @mcp.resource("checkvist://lists")
 async def list_checklists() -> str:
@@ -70,23 +87,26 @@ async def search_tasks(query: str) -> str:
     return "\n".join([f"- {r['content']} [List: {r['list_name']} (ID: {r['list_id']}), Task ID: {r['id']}]" for r in results])
 
 @mcp.tool()
-async def move_task_tool(list_id: str, task_id: str, new_parent_id: str) -> str:
-    """ Move a task to a new parent task within the same list. 
-        Useful for organizing (Triage).
+async def move_task_tool(list_id: str, task_id: str, target_list_id: str = None, target_parent_id: str = None) -> str:
+    """ Move a task within a list or to a completely different list. 
+        If target_list_id is provided, it performs a cross-list move.
     """
     c = get_client()
     if not c.token:
         await c.authenticate()
     
-    # Optional: Get task context first to confirm safe move? 
-    # For now, just move.
-    moved = await c.move_task(int(list_id), int(task_id), int(new_parent_id))
-    return f"Moved task {task_id} to new parent {new_parent_id}."
+    if target_list_id and int(target_list_id) != int(list_id):
+        moved = await c.move_task_to_list(int(list_id), int(task_id), int(target_list_id), int(target_parent_id) if target_parent_id else None)
+        return f"Moved task {task_id} from list {list_id} to list {target_list_id}."
+    else:
+        # Same list move (reparenting)
+        moved = await c.move_task(int(list_id), int(task_id), int(target_parent_id) if target_parent_id else None)
+        return f"Moved task {task_id} under new parent {target_parent_id} in list {list_id}."
 
 @mcp.tool()
 async def triage_inbox(inbox_name: str = "Inbox") -> str:
     """ Fetch tasks from the 'Inbox' list for triage. 
-        Returns tasks with their IDs for the agent to decide where to move them.
+        Returns tasks with their IDs and current list IDs.
     """
     c = get_client()
     if not c.token:
@@ -96,16 +116,18 @@ async def triage_inbox(inbox_name: str = "Inbox") -> str:
     inbox = next((l for l in checklists if inbox_name.lower() in l['name'].lower()), None)
     
     if not inbox:
-        return f"List named '{inbox_name}' not found."
+        lists_available = ", ".join([l['name'] for l in checklists])
+        return f"List named '{inbox_name}' not found. Available: {lists_available}"
         
     tasks = await c.get_tasks(inbox['id'])
     # Filter only open tasks
     open_tasks = [t for t in tasks if t.get('status', 0) == 0]
     
     if not open_tasks:
-        return "Inbox is empty! Good job."
+        return f"Inbox ({inbox['name']}) is empty! Good job."
         
-    return "\n".join([f"- {t['content']} (ID: {t['id']}, ListID: {inbox['id']})" for t in open_tasks])
+    return f"Tasks in {inbox['name']} (ID: {inbox['id']}):\n" + \
+           "\n".join([f"- {t['content']} (ID: {t['id']})" for t in open_tasks])
 
 @mcp.tool()
 async def get_tree(list_id: str, depth: int = 1) -> str:

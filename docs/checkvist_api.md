@@ -1,0 +1,58 @@
+# Checkvist Open API Documentation
+
+Reference documentation for Checkvist API, retrieved from https://checkvist.com/auth/api.
+
+## General Principles
+- **Base URL**: `https://checkvist.com`
+- **Formats**: Supports `.json` and `.xml` suffixes.
+- **HTTP Methods**: Supports GET, POST, PUT, DELETE. To emulate PUT/DELETE via POST, use `_method` parameter.
+
+## Authentication
+- **Token-based**: Recommended.
+- **Header**: `X-Client-Token` or parameter `token`.
+- **Obtaining Token**: `POST /auth/login.json?version=2` with `username` and `remote_key`.
+
+## Working with Checklists
+### Get list of user checklists
+`GET /checklists.json`
+- Parameters: `archived`, `order`, `skip_stats`.
+
+### Create a checklist
+`POST /checklists.json`
+- Parameters: `checklist[name]`, `checklist[public]`.
+
+## Working with List Items (Tasks)
+### Get list items
+`GET /checklists/{list_id}/tasks.json`
+- Parameters: `with_notes`, `order`.
+
+### Create list items (Single or Bulk)
+`POST /checklists/{list_id}/tasks.json`
+- **Single**: `task[content]`, `task[parent_id]`, `task[tags]`, `task[due_date]`, `task[position]`, `task[priority]`.
+- **Bulk (Import)**:
+    - **Endpoint**: `POST /checklists/{list_id}/import.json`
+    - **Parameters**:
+        - `import_content`: Hierarchical text.
+        - `import_content_note`: Note for the first item.
+        - `parent_id`: ID of the parent item.
+        - `parse_tasks`: Boolean to parse smart syntax (^due, #tags, !priority).
+        - `position`: 1-based position.
+
+### Update list item
+`PUT /checklists/{list_id}/tasks/{task_id}.json`
+- Parameters: `task[content]`, `task[parent_id]`, `task[tags]`, `task[due_date]`, `task[position]`, `task[priority]`.
+
+### Status Changes (Close/Open/Invalidate)
+`POST /checklists/{list_id}/tasks/{task_id}/{action}.json`
+- Actions: `close`, `reopen`, `invalidate`.
+
+## Working with Notes (Comments)
+### Get task notes
+`GET /checklists/{list_id}/tasks/{task_id}/comments.json`
+
+### Create a note for a task
+`POST /checklists/{list_id}/tasks/{task_id}/comments.json`
+- Parameters: `comment[comment]`.
+
+### Update/Delete note
+`PUT/DELETE /checklists/{list_id}/tasks/{task_id}/comments/{comment_id}.json`

@@ -2,3 +2,6 @@ fastmcp
 httpx
 python-dotenv
 lupa
+pytest
+pytest-asyncio
+pytest-mock

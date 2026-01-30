@@ -154,6 +154,13 @@ L'IA ottimizza i tuoi input grezzi per massimizzare le funzioni di Checkvist.
 - **Azione:** "Hai scritto 'Palestra lunedì'. L'ho trasformato in 'Palestra ^mon #salute' così Checkvist ti invierà il promemoria correttamente."
 - **Vantaggio:** Sfrutta al 100% la potenza di Checkvist senza impararne a memoria la sintassi.
 
+## 11. Gestione dei Cicli e Sprint (Linear Style)
+
+L'IA aiuta a definire e chiudere periodi di lavoro (settimane o sprint), spostando ciò che non è stato completato.
+
+- **Azione:** "Chiudi il ciclo di questa settimana. Analizza cosa è rimasto aperto e spostalo nel 'Ciclo 05' della prossima settimana."
+- **Tool MCP:** `migrate_cycle(source_id, target_id)` che muove i task incompleti tra nodi/liste.
+
 ---
 
 # I 5 Flussi di Lavoro Definitivi per Checkvist MCP

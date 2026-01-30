@@ -10,12 +10,12 @@ status: active
 
 Non stiamo inventando da zero. Stiamo assemblando i "Superpoteri" dei migliori tool.
 
-| Tool | Concetto Key | In Checkvist MCP |
-| :--- | :--- | :--- |
-| **Linear** 🟢 | Triage & Cycles | L'IA scansiona la Inbox e propone dove smistare i task. |
-| **GitHub** 🐙 | Issues & Deps | L'IA crea link di dipendenza: "Non puoi fare B se non finisci A". |
-| **Readwise** 🧠 | Spaced Repetition | L'IA ripesca vecchie idee dimenticate per darti nuovi spunti. |
-| **Superhuman** ⚡ | Zero Inbox | Comandi rapidi per nascondere/snoozare task non urgenti. |
+| Tool              | Concetto Key      | In Checkvist MCP                                                  |
+| :---------------- | :---------------- | :---------------------------------------------------------------- |
+| **Linear** 🟢    | Triage & Cycles   | L'IA scansiona la Inbox e propone dove smistare i task.           |
+| **GitHub** 🐙    | Issues & Deps     | L'IA crea link di dipendenza: "Non puoi fare B se non finisci A". |
+| **Readwise** 🧠  | Spaced Repetition | L'IA ripesca vecchie idee dimenticate per darti nuovi spunti.     |
+| **Superhuman** ⚡ | Zero Inbox        | Comandi rapidi per nascondere/snoozare task non urgenti.          |
 
 ---
 
@@ -37,7 +37,7 @@ Il server non è un passacarte. È un Agente Operativo.
 
 Semplice, Veloce, Stateless.
 
-- **Core:** Python 3.13 + [FastMCP](https://github.com/jlowin/fastmcp).
+- **Core:** Python 3.11 + [FastMCP](https://github.com/jlowin/fastmcp).
 - **Auth:** Checkvist Open API (Basic Auth / API Key).
 - **Speed:** Caching locale leggero dei nomi delle liste.
 - **Format:** Markdown nativo per input/output.
