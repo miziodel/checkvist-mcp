@@ -30,6 +30,9 @@ The project is structured to be "Documentation First". Start here:
 -   **[Risks & Mitigation](docs/risks.md)**: Critical analysis of API limits, privacy, and token costs.
 -   **[Architecture](docs/architecture.md)**: The technical design (FastMCP + Python).
 -   **[The Squad (AGENTS.md)](AGENTS.md)**: Who is building this?
+-   **[Functional Scenarios](tests/SCENARIOS.md)**: Gherkin-style walkthrough of every feature.
+-   **[Human Testing Playbook](tests/PLAYBOOK.md)**: Manual scenarios for "Vibe Checking".
+-   **[Verification Guide](tests/VERIFICATION_GUIDE.md)**: How we test (TDD + Stateful Mocks).
 
 ## 🛠️ Quick Start
 

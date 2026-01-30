@@ -1,3 +1,9 @@
+---
+version: 1.0.0
+last_modified: 2026-01-30
+status: active
+---
+
 # Checkvist Open API Documentation
 
 Reference documentation for Checkvist API, retrieved from https://checkvist.com/auth/api.

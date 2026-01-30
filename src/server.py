@@ -104,6 +104,90 @@ async def move_task_tool(list_id: str, task_id: str, target_list_id: str = None,
         return f"Moved task {task_id} under new parent {target_parent_id} in list {list_id}."
 
 @mcp.tool()
+async def import_tasks(list_id: str, content: str, parent_id: str = None) -> str:
+    """ Bulk import tasks using a hierarchical text format (one per line, indent with 2 spaces). """
+    c = get_client()
+    if not c.token:
+        await c.authenticate()
+    tasks = await c.import_tasks(int(list_id), content, int(parent_id) if parent_id else None)
+    return f"Tasks imported successfully. New items count: {len(tasks)}"
+
+@mcp.tool()
+async def add_note(list_id: str, task_id: str, note: str) -> str:
+    """ Add a note (comment) to a specific task. """
+    c = get_client()
+    if not c.token:
+        await c.authenticate()
+    await c.add_note(int(list_id), int(task_id), note)
+    return f"Note added to task {task_id} in list {list_id}."
+
+@mcp.tool()
+async def set_priority(list_id: str, task_id: str, priority: int) -> str:
+    """ Set task priority (1-6, where 1 is highest/red). Use 0 for no priority. """
+    c = get_client()
+    if not c.token:
+        await c.authenticate()
+    await c.update_task(int(list_id), int(task_id), priority=priority)
+    return f"Priority set to {priority} for task {task_id}."
+
+@mcp.tool()
+async def set_due_date(list_id: str, task_id: str, due: str) -> str:
+    """ Set a due date using Checkvist's smart syntax (e.g., 'tomorrow', 'next mon', '2024-12-31'). """
+    c = get_client()
+    if not c.token:
+        await c.authenticate()
+    await c.update_task(int(list_id), int(task_id), due_date=due)
+    return f"Due date set to '{due}' for task {task_id}."
+
+@mcp.tool()
+async def apply_template(template_list_id: str, target_list_id: str) -> str:
+    """ Clone all tasks from a template list into a target list. """
+    c = get_client()
+    if not c.token:
+        await c.authenticate()
+    
+    template_tasks = await c.get_tasks(int(template_list_id))
+    # Filter for root tasks to avoid duplicating children twice 
+    # (import_tasks handles hierarchy if we provide the right text)
+    # For simplicity, we use import_tasks with the content of all tasks
+    import_text = "\n".join([t['content'] for t in template_tasks if t.get('parent_id') is None])
+    await c.import_tasks(int(target_list_id), import_text)
+    return f"Template applied to list {target_list_id}."
+
+@mcp.tool()
+async def get_review_data(timeframe: str = "weekly") -> str:
+    """ Get statistics about completed vs open tasks to help with periodic review. """
+    c = get_client()
+    if not c.token:
+        await c.authenticate()
+    
+    checklists = await c.get_checklists()
+    report = [f"Review Report ({timeframe}):"]
+    
+    for l in checklists[:5]: # Limit to first 5 for speed
+        tasks = await c.get_tasks(l['id'])
+        done = len([t for t in tasks if t.get('status', 0) == 1])
+        open_ts = len([t for t in tasks if t.get('status', 0) == 0])
+        report.append(f"- {l['name']}: {done} completed, {open_ts} open")
+        
+    return "\n".join(report)
+
+@mcp.tool()
+async def migrate_incomplete_tasks(source_list_id: str, target_list_id: str) -> str:
+    """ Move all incomplete tasks from one list to another (e.g., closing a cycle/sprint). """
+    c = get_client()
+    if not c.token:
+        await c.authenticate()
+    
+    tasks = await c.get_tasks(int(source_list_id))
+    incomplete = [t for t in tasks if t.get('status', 0) == 0]
+    
+    for t in incomplete:
+        await c.move_task_to_list(int(source_list_id), t['id'], int(target_list_id))
+        
+    return f"Migrated {len(incomplete)} incomplete tasks to list {target_list_id}."
+
+@mcp.tool()
 async def triage_inbox(inbox_name: str = "Inbox") -> str:
     """ Fetch tasks from the 'Inbox' list for triage. 
         Returns tasks with their IDs and current list IDs.

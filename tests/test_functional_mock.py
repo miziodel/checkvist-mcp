@@ -1,12 +1,9 @@
 import pytest
-import os
-import sys
 from unittest.mock import AsyncMock
-
-# Ensure project root is in path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from src.server import mcp, get_client
+from src.server import (
+    mcp, get_client, add_task, import_tasks,
+    add_note, set_priority, triage_inbox, move_task_tool
+)
 
 # --- MOCK DATA ---
 MOCK_LISTS = [
@@ -44,44 +41,38 @@ def mock_client(mocker):
 
 @pytest.mark.asyncio
 async def test_content_add_task_contextual(mock_client):
-    from src.server import add_task
     result = await add_task(list_id="100", content="Refactor Tests")
     mock_client.add_task.assert_called_with(100, "Refactor Tests", None)
     assert "Task added" in result
 
 @pytest.mark.asyncio
 async def test_content_bulk_import(mock_client):
-    from src.server import import_tasks
     result = await import_tasks(list_id="100", content="Task A\n  Subtask A1")
     mock_client.import_tasks.assert_called_with(100, "Task A\n  Subtask A1", None)
     assert "Tasks imported" in result
 
 @pytest.mark.asyncio
 async def test_content_add_note(mock_client):
-    from src.server import add_note
     result = await add_note(list_id="100", task_id="101", note="Important note")
     mock_client.add_note.assert_called_with(100, 101, "Important note")
     assert "Note added" in result
 
 @pytest.mark.asyncio
 async def test_content_set_priority(mock_client):
-    from src.server import set_priority
     result = await set_priority(list_id="100", task_id="101", priority=1)
     mock_client.update_task.assert_called_with(100, 101, priority=1)
-    assert "Priority updated" in result
+    assert "Priority set to" in result
 
 # --- TRIAGE TESTS ---
 
 @pytest.mark.asyncio
 async def test_triage_inbox_fetch(mock_client):
-    from src.server import triage_inbox
     result = await triage_inbox(inbox_name="Inbox")
     assert "Auth Module" in result # MOCK_TASKS is used in get_tasks
     assert "999" in result
 
 @pytest.mark.asyncio
 async def test_triage_cross_list_move(mock_client):
-    from src.server import move_task_tool
     result = await move_task_tool(list_id="999", task_id="501", target_list_id="888")
     mock_client.move_task_to_list.assert_called_with(999, 501, 888, None)
     assert "from list 999 to list 888" in result

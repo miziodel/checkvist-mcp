@@ -1,3 +1,9 @@
+---
+version: 1.1.0
+last_modified: 2026-01-30
+status: active
+---
+
 ## 🗺️ Roadmap & Vision Mapping
 
 | Phase             | Scenario IDs | Vision Pillar           | Concept                                    |
@@ -169,3 +175,9 @@ Given a list of tasks in "Current Cycle"
 When the Agent calls `migrate_incomplete_tasks(source_list_id, target_list_id)`
 Then all tasks with status 0 are moved to the target list.
 ```
+
+---
+## 📚 Related Documentation
+- [Vision & Roadmap](../docs/vision.md)
+- [Verification Guide](VERIFICATION_GUIDE.md)
+- [Human Playbook](PLAYBOOK.md)

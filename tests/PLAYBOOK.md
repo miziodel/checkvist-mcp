@@ -1,3 +1,9 @@
+---
+version: 1.0.1
+last_modified: 2026-01-30
+status: active
+---
+
 # 🎭 Human Testing Playbook (The "Vibe Check")
 
 While the automated tests verify the code, these manual scenarios verify if the Agent is actually *useful* and *intelligent*.

@@ -1,3 +1,9 @@
+---
+version: 1.0.0
+last_modified: 2026-01-30
+status: active
+---
+
 # Verification Guide: High-Level Agentic Workflows
 
 To verify that the MCP server solves high-level cases (the "Vision Pillars"), we use three levels of testing:

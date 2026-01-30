@@ -129,6 +129,40 @@ class CheckvistClient:
         response.raise_for_status()
         return response.json()
 
+    async def import_tasks(self, list_id: int, content: str, parent_id: int = None, position: int = None):
+        """ Import tasks in bulk using Checkvist's hierarchical text format. """
+        params = {
+            "import_content": content,
+            "parse_tasks": "true" # Enable smart syntax parsing
+        }
+        if parent_id:
+            params["parent_id"] = parent_id
+        if position:
+            params["position"] = position
+            
+        response = await self.client.post(f"/checklists/{list_id}/import.json", params=params)
+        response.raise_for_status()
+        return response.json()
+
+    async def add_note(self, list_id: int, task_id: int, note: str):
+        """ Add a comment/note to a specific task. """
+        data = {"comment[comment]": note}
+        response = await self.client.post(f"/checklists/{list_id}/tasks/{task_id}/comments.json", params=data)
+        response.raise_for_status()
+        return response.json()
+
+    async def update_task(self, list_id: int, task_id: int, content: str = None, priority: int = None, due_date: str = None, tags: str = None):
+        """ Update an existing task's properties. """
+        data = {}
+        if content: data["task[content]"] = content
+        if priority is not None: data["task[priority]"] = priority
+        if due_date: data["task[due_date]"] = due_date
+        if tags: data["task[tags]"] = tags
+        
+        response = await self.client.put(f"/checklists/{list_id}/tasks/{task_id}.json", params=data)
+        response.raise_for_status()
+        return response.json()
+
     async def search_tasks(self, query: str):
         """ Search for tasks using Checkvist's search logic where possible, 
             or a safer iteration.
