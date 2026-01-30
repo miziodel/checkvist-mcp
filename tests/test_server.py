@@ -53,3 +53,14 @@ async def test_search_tasks_tool():
         from src.server import search_tasks
         result = await search_tasks("Find")
         assert "- Find me [List: L1 (ID: 1), Task ID: 10]" in result
+
+@pytest.mark.asyncio
+async def test_create_list_tool():
+    mock_client = MagicMock()
+    mock_client.token = "mock_token"
+    mock_client.create_checklist = AsyncMock(return_value={"id": 500, "name": "New Project"})
+    
+    with patch("src.server.get_client", return_value=mock_client):
+        from src.server import create_list
+        result = await create_list(name="New Project")
+        assert "Checklist created: New Project (ID: 500)" in result

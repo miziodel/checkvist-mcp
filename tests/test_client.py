@@ -133,3 +133,19 @@ async def test_search_tasks_success():
         
         assert len(results) == 1
         assert results[0]["content"] == "Find me"
+
+@pytest.mark.asyncio
+async def test_create_checklist_success():
+    client = CheckvistClient(username="test@example.com", api_key="fake_api_key")
+    client.token = "mock_token_123"
+    client.client.headers["X-Client-Token"] = "mock_token_123"
+    
+    with respx.mock:
+        respx.post("https://checkvist.com/checklists.json").mock(
+            return_value=Response(201, json={"id": 500, "name": "New Project"})
+        )
+        
+        checklist = await client.create_checklist("New Project")
+        
+        assert checklist["id"] == 500
+        assert checklist["name"] == "New Project"

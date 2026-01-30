@@ -2,7 +2,8 @@ import pytest
 from unittest.mock import AsyncMock
 from src.server import (
     mcp, get_client, add_task, import_tasks,
-    add_note, set_priority, triage_inbox, move_task_tool
+    add_note, set_priority, triage_inbox, move_task_tool,
+    close_task, create_list
 )
 
 # --- MOCK DATA ---
@@ -76,3 +77,24 @@ async def test_triage_cross_list_move(mock_client):
     result = await move_task_tool(list_id="999", task_id="501", target_list_id="888")
     mock_client.move_task_to_list.assert_called_with(999, 501, 888, None)
     assert "from list 999 to list 888" in result
+
+# --- MANAGEMENT TESTS ---
+
+@pytest.mark.asyncio
+async def test_management_close_task_robust(mock_client):
+    # Test with standard dictionary response
+    mock_client.close_task.return_value = {"id": 102, "content": "Closing...", "status": 1}
+    result = await close_task(list_id="100", task_id="102")
+    assert "Task closed: Closing..." in result
+    
+    # Test with list response (Bug Case Fix)
+    mock_client.close_task.return_value = [{"id": 102, "content": "Robust Close", "status": 1}]
+    result = await close_task(list_id="100", task_id="102")
+    assert "Task closed: Robust Close" in result
+
+@pytest.mark.asyncio
+async def test_management_create_list(mock_client):
+    mock_client.create_checklist.return_value = {"id": 500, "name": "New Project"}
+    result = await create_list(name="New Project")
+    assert "Checklist created: New Project (ID: 500)" in result
+    mock_client.create_checklist.assert_called_with("New Project", False)

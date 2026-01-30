@@ -47,6 +47,7 @@ Questo documento è il punto di riferimento per lo sviluppo del server MCP. Unis
 ### Gruppo: Azione (Agentic)
 
 - `smart_add(text, parent_id)`: Aggiunge task interpretando date e tag.
+- `create_list(name, public)`: Crea una nuova checklist.
 - `triage_inbox()`: Analizza la inbox e propone destinazioni.
 - `apply_template(template_id, variables)`: Clona strutture predefinite.
 

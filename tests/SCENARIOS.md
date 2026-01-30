@@ -74,6 +74,27 @@ When the Agent calls `reopen_task(list_id, task_id)`
 Then the task status is set back to 0 (open).
 ```
 
+### TASK-004: Create Checklist
+*Vision Match: Foundation / Autonomous Flux*
+```gherkin
+When the Agent calls `create_list(name="New Project")`
+Then a new checklist is created with the given name.
+```
+
+---
+
+## 🐞 Bug Fixes & Robustness (BUG)
+
+### BUG-001: Robust Task Closing
+*Issue: Systematic failure when closing tasks due to type or structural mismatch.*
+```gherkin
+Given a list_id and task_id (possibly as strings)
+When the Agent calls `close_task(list_id, task_id)`
+Then the server correctly casts IDs to integers
+And handles the API response safely even if it's a list or dictionary
+And returns a successful confirmation message.
+```
+
 ---
 
 ## 📦 Phase 3: Bulk & Group Operations (BULK)

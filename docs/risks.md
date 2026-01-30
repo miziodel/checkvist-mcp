@@ -128,3 +128,12 @@ Checkvist evolve, ma il tuo server MCP potrebbe rimanere indietro.
 | **Token Cost**     | Troncare le note oltre i 2000 caratteri.              | Usare il parametro depth nel caricamento dell'albero.  |
 | **Data Integrity** | Backup automatico (Export JSON) prima di ogni Triage. | Chiedere conferma "Y/N" per ogni spostamento di nodo.  |
 | **Privacy**        | Filtro regex per escludere task con tag #segreto.     | Istruire l'IA a non citare mai dati sensibili nei log. |
+---
+
+## 8. Incongruenze Strutturali e di Tipo (The "TypeError" Trap)
+
+Le API possono evolvere o avere comportamenti non documentati (es. ritornare una lista invece di un oggetto).
+
+- **Il Fallimento:** Il server assume che una risposta sia un dizionario e prova ad accedervi per chiave, scatenando un `TypeError`.
+- **Conseguenza:** Il tool fallisce sistematicamente, bloccando l'agente.
+- **Mitigazione:** Implementare una "Robust Response Handling" che verifichi il tipo di dato ritornato (isinstance list vs dict) e forzare il casting dei tipi (str to int) per gli input dell'LLM.

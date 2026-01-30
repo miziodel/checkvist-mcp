@@ -51,6 +51,7 @@ Reference documentation for Checkvist API, retrieved from https://checkvist.com/
 ### Status Changes (Close/Open/Invalidate)
 `POST /checklists/{list_id}/tasks/{task_id}/{action}.json`
 - Actions: `close`, `reopen`, `invalidate`.
+- **Note**: The API may return a list (e.g. `[{"id": ...}]`) instead of a single object for `close`. The client must handle both cases.
 
 ## Working with Notes (Comments)
 ### Get task notes

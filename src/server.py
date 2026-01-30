@@ -60,20 +60,51 @@ async def get_list_content(list_id: str) -> str:
 @mcp.tool()
 async def add_task(list_id: str, content: str, parent_id: str = None) -> str:
     """ Add a new task to a checklist. """
-    c = get_client()
-    if not c.token:
-        await c.authenticate()
-    task = await c.add_task(int(list_id), content, int(parent_id) if parent_id else None)
-    return f"Task added: {task['content']} (ID: {task['id']})"
+    try:
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
+        task = await c.add_task(int(list_id), content, int(parent_id) if parent_id else None)
+        return f"Task added: {task['content']} (ID: {task['id']})"
+    except Exception as e:
+        return f"Error adding task: {str(e)}"
 
 @mcp.tool()
 async def close_task(list_id: str, task_id: str) -> str:
     """ Close a task. """
-    c = get_client()
-    if not c.token:
-        await c.authenticate()
-    task = await c.close_task(int(list_id), int(task_id))
-    return f"Task closed: {task['content']}"
+    try:
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
+        
+        # Robust type coercion
+        l_id = int(list_id)
+        t_id = int(task_id)
+        
+        response = await c.close_task(l_id, t_id)
+        
+        # Handle potential list response (Bug Fix)
+        if isinstance(response, list) and len(response) > 0:
+            task = response[0]
+        else:
+            task = response
+            
+        return f"Task closed: {task.get('content', 'Unknown content')}"
+    except Exception as e:
+        return f"Error closing task: {str(e)}"
+
+@mcp.tool()
+async def create_list(name: str, public: bool = False) -> str:
+    """ Create a new checklist. """
+    try:
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
+        
+        checklist = await c.create_checklist(name, public)
+        return f"Checklist created: {checklist['name']} (ID: {checklist['id']})"
+    except Exception as e:
+        return f"Error creating checklist: {str(e)}"
 
 @mcp.tool()
 async def search_tasks(query: str) -> str:

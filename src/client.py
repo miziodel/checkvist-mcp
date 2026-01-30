@@ -43,6 +43,16 @@ class CheckvistClient:
         response.raise_for_status()
         return response.json()
 
+    async def create_checklist(self, name: str, public: bool = False):
+        """ Create a new checklist. """
+        params = {
+            "checklist[name]": name,
+            "checklist[public]": str(public).lower()
+        }
+        response = await self.client.post("/checklists.json", params=params)
+        response.raise_for_status()
+        return response.json()
+
     async def add_task(self, list_id: int, content: str, parent_id: int = None, position: int = None):
         """ Add a new task to a checklist. """
         data = {"task[content]": content}
