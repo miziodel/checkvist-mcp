@@ -63,7 +63,8 @@ async def test_phase3_bulk_operations(stateful_client):
     # BULK-003: Cross-list move
     # Find one of the imported tasks
     task = next(t for t in stateful_client.tasks if t["content"] == "Subtask 1")
-    await move_task_tool(list_id="100", task_id=str(task["id"]), target_list_id="200")
+    await move_task_tool(list_id="100", task_id=str(task["id"]), target_list_id="200", confirmed=True)
+
     
     # Verify it moved
     spesa_content = await get_list_content(list_id="200")
@@ -101,7 +102,8 @@ async def test_phase5_advanced_workflows(stateful_client):
     
     # PROC-003: Apply Template
     target_list_id = "100"
-    await apply_template(template_list_id=template_list_id, target_list_id=target_list_id)
+    await apply_template(template_list_id=template_list_id, target_list_id=target_list_id, confirmed=True)
+
     
     work_content = await get_list_content(list_id="100")
     assert "Step 1" in work_content
@@ -109,7 +111,8 @@ async def test_phase5_advanced_workflows(stateful_client):
     
     # PROC-005: Cycle Migration
     # 'Latte' (ID 1) is open in Spesa (200). Move to Work (100).
-    await migrate_incomplete_tasks(source_list_id="200", target_list_id="100")
+    await migrate_incomplete_tasks(source_list_id="200", target_list_id="100", confirmed=True)
+
     
     spesa_content = await get_list_content(list_id="200")
     assert "Latte" not in spesa_content

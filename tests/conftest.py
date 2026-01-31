@@ -84,7 +84,14 @@ class StatefulMockClient:
                 results.append({**t, "list_name": l_name})
         return results
 
+    async def get_task(self, list_id, task_id):
+        for t in self.tasks:
+            if t["id"] == int(task_id):
+                return t
+        raise ValueError("Task not found")
+
     async def update_task(self, list_id, task_id, content=None, priority=None, tags=None, due_date=None):
+
         for t in self.tasks:
             if t["id"] == int(task_id):
                 if content: t["content"] = content

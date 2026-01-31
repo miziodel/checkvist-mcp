@@ -215,6 +215,49 @@ Then all tasks with status 0 are moved to the target list.
 ```
 
 ---
+## 🛡️ Phase 6: Risk Mitigation & Safety (SAFE)
+*Goal: Ensure data integrity and system robustness.*
+
+### SAFE-001: Logical Deletion (Archive)
+*Vision Match: Safety / Data Integrity*
+```gherkin
+Given a list_id and task_id
+When the Agent calls `archive_task(list_id, task_id)`
+Then the task is assigned the tag "#deleted"
+And subsequent calls to `get_tree` or `get_list_content` exclude this task.
+```
+
+### SAFE-002: Prompt Injection Delimiters
+*Vision Match: Security / Trust Boundaries*
+```gherkin
+When any read tool (e.g., `get_list_content`) returns user-generated data
+Then the content is wrapped in `<user_data>` XML-style delimiters.
+```
+
+### SAFE-003: API Rate Limit Warning
+*Vision Match: Stability / Rate Limiting*
+```gherkin
+When the Agent makes more than 10 tool calls in 60 seconds
+Then the tool output includes a `[!WARNING]` about high API usage.
+```
+
+### SAFE-004: Breadcrumbs Context
+*Vision Match: Context awareness / Parent-Trap prevention*
+```gherkin
+When the Agent searches for a task or lists content
+Then the output shows the full breadcrumb path (e.g. "Root > Category > Task").
+```
+
+### SAFE-005: Triage Confirmation (Human-in-the-loop)
+*Vision Match: Safety / Triage Chaos prevention*
+```gherkin
+When the Agent tries to move a task or migrate tasks
+Then the tool returns a summary of the action and a `[!IMPORTANT]` note requesting user confirmation before proceeding.
+And the action is NOT performed until a "confirmed" parameter is set or the LLM explicitly acknowledges.
+*Note: For this v1, we will implement the warning message first to allow the LLM to pause.*
+```
+
+---
 ## 📚 Related Documentation
 - [Vision & Roadmap](../docs/vision.md)
 - [Verification Guide](VERIFICATION_GUIDE.md)

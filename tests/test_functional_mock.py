@@ -74,9 +74,10 @@ async def test_triage_inbox_fetch(mock_client):
 
 @pytest.mark.asyncio
 async def test_triage_cross_list_move(mock_client):
-    result = await move_task_tool(list_id="999", task_id="501", target_list_id="888")
+    result = await move_task_tool(list_id="999", task_id="501", target_list_id="888", confirmed=True)
     mock_client.move_task_to_list.assert_called_with(999, 501, 888, None)
     assert "from list 999 to list 888" in result
+
 
 # --- MANAGEMENT TESTS ---
 

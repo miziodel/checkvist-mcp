@@ -74,8 +74,19 @@ Ecco alcuni prompt pronti all'uso per massimizzare l'efficienza:
 2.  **Crea la Radice**: Inizia un nuovo albero partendo da un Outcome chiaro.
 3.  **Delega la Struttura**: Inizia con un brain dump e chiedi all'MCP di "ordinare il caos".
 
+## 6. Il "Safety Mesh" (XML & Trust Boundaries)
+
+Per proteggere l'integrità del tuo sistema e prevenire attacchi di *prompt injection* (comandi malevoli nascosti nelle note), il server MCP applica una "rete di sicurezza":
+
+- **Encapsulation**: Tutti i dati provenienti da Checkvist (nomi liste, testi task, note) sono avvolti in tag `<user_data>...</user_data>`.
+- **Trust Boundary**: Gli agenti AI sono istruiti a trattare tutto ciò che si trova tra questi tag come **puro contenuto informativo**, mai come istruzioni da eseguire.
+
+Se dovessi vedere dei tag XML nelle risposte dell'agente, non preoccuparti: servono ad assicurare che l'assistente stia leggendo i tuoi dati senza confonderli con i suoi ordini operativi.
+
+
 ---
 
 ### Per Approfondire
+
 - **[Research Hub](research/README.md)**: Scopri le teorie di Dan Shipper, Tiago Forte, Ethan Mollick e Nick Milo.
 - **[Casi d'Uso Evoluti](use-cases.md)**: Esempi pratici di comandi per ogni stile di workflow.
