@@ -137,12 +137,12 @@ async def move_task_tool(list_id: str, task_id: str, target_list_id: str = None,
         await c.authenticate()
     
     if target_list_id and int(target_list_id) != int(list_id):
-        moved = await c.move_task_to_list(int(list_id), int(task_id), int(target_list_id), int(target_parent_id) if target_parent_id else None)
+        await c.move_task_to_list(int(list_id), int(task_id), int(target_list_id), int(target_parent_id) if target_parent_id else None)
         return f"Moved task {task_id} from list {list_id} to list {target_list_id}."
     else:
         # Same list move (reparenting)
-        moved = await c.move_task(int(list_id), int(task_id), int(target_parent_id) if target_parent_id else None)
-        return f"Moved task {task_id} under new parent {target_parent_id} in list {list_id}."
+        await c.move_task(int(list_id), int(task_id), int(target_parent_id) if target_parent_id else None)
+        return f"Moved task {task_id} under new parent {target_parent_id if target_parent_id else 'root'} in list {list_id}."
 
 @mcp.tool()
 async def import_tasks(list_id: str, content: str, parent_id: str = None) -> str:
@@ -170,6 +170,18 @@ async def set_priority(list_id: str, task_id: str, priority: int) -> str:
         await c.authenticate()
     await c.update_task(int(list_id), int(task_id), priority=priority)
     return f"Priority set to {priority} for task {task_id}."
+
+@mcp.tool()
+async def rename_list(list_id: str, new_name: str) -> str:
+    """ Rename an existing checklist. """
+    try:
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
+        await c.rename_checklist(int(list_id), new_name)
+        return f"List {list_id} successfully renamed to '{new_name}'."
+    except Exception as e:
+        return f"Error renaming list: {str(e)}"
 
 @mcp.tool()
 async def set_due_date(list_id: str, task_id: str, due: str) -> str:
@@ -226,7 +238,7 @@ async def migrate_incomplete_tasks(source_list_id: str, target_list_id: str) -> 
     for t in incomplete:
         await c.move_task_to_list(int(source_list_id), t['id'], int(target_list_id))
         
-    return f"Migrated {len(incomplete)} incomplete tasks to list {target_list_id}."
+    return f"Successfully migrated {len(incomplete)} incomplete tasks to list {target_list_id}."
 
 @mcp.tool()
 async def triage_inbox(inbox_name: str = "Inbox") -> str:

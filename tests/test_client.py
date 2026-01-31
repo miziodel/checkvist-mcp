@@ -1,7 +1,9 @@
 import pytest
 import respx
+import httpx
 from httpx import Response
 from src.client import CheckvistClient
+from unittest.mock import MagicMock
 
 @pytest.mark.asyncio
 async def test_authenticate_success():
@@ -149,3 +151,62 @@ async def test_create_checklist_success():
         
         assert checklist["id"] == 500
         assert checklist["name"] == "New Project"
+
+@pytest.mark.asyncio
+async def test_safe_json_204():
+    client = CheckvistClient("user", "key")
+    response = MagicMock(spec=httpx.Response)
+    response.status_code = 204
+    response.content = b""
+    
+    result = await client._safe_json(response)
+    assert result == {}
+
+@pytest.mark.asyncio
+async def test_safe_json_empty_body():
+    client = CheckvistClient("user", "key")
+    response = MagicMock(spec=httpx.Response)
+    response.status_code = 200
+    response.content = b"  "
+    
+    result = await client._safe_json(response)
+    assert result == {}
+
+@pytest.mark.asyncio
+async def test_safe_json_valid_body():
+    client = CheckvistClient("user", "key")
+    response = MagicMock(spec=httpx.Response)
+    response.status_code = 200
+    response.content = b'{"id": 123, "content": "test"}'
+    response.json.return_value = {"id": 123, "content": "test"}
+    
+    result = await client._safe_json(response)
+    assert result == {"id": 123, "content": "test"}
+
+@pytest.mark.asyncio
+async def test_safe_json_invalid_json():
+    client = CheckvistClient("user", "key")
+    response = MagicMock(spec=httpx.Response)
+    response.status_code = 200
+    response.content = b'invalid json'
+    response.text = 'invalid json'
+    response.json.side_effect = Exception("Parsing error")
+    
+    result = await client._safe_json(response)
+    assert result == {}
+
+@pytest.mark.asyncio
+async def test_rename_checklist_success():
+    client = CheckvistClient(username="test@example.com", api_key="fake_api_key")
+    client.token = "mock_token_123"
+    client.client.headers["X-Client-Token"] = "mock_token_123"
+    
+    with respx.mock:
+        respx.put("https://checkvist.com/checklists/1.json").mock(
+            return_value=Response(200, json={"id": 1, "name": "Renamed List"})
+        )
+        
+        checklist = await client.rename_checklist(1, "Renamed List")
+        
+        assert checklist["id"] == 1
+        assert checklist["name"] == "Renamed List"

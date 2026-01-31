@@ -12,6 +12,16 @@ class CheckvistClient:
         self.token = None
         self.client = httpx.AsyncClient(base_url=self.BASE_URL)
 
+    async def _safe_json(self, response: httpx.Response):
+        """ Safely parse JSON or return an empty dict if the body is empty (e.g. 204 No Content). """
+        if response.status_code == 204 or not response.content.strip():
+            return {}
+        try:
+            return response.json()
+        except Exception as e:
+            logger.error(f"Failed to parse JSON response: {response.text}. Error: {e}")
+            return {}
+
     async def authenticate(self) -> bool:
         """ Authenticate with Checkvist and get a token. """
         try:
@@ -35,13 +45,13 @@ class CheckvistClient:
         """ Get all checklists for the user. """
         response = await self.client.get("/checklists.json")
         response.raise_for_status()
-        return response.json()
+        return await self._safe_json(response)
 
     async def get_tasks(self, list_id: int):
         """ Get all tasks in a checklist. """
         response = await self.client.get(f"/checklists/{list_id}/tasks.json")
         response.raise_for_status()
-        return response.json()
+        return await self._safe_json(response)
 
     async def create_checklist(self, name: str, public: bool = False):
         """ Create a new checklist. """
@@ -51,7 +61,7 @@ class CheckvistClient:
         }
         response = await self.client.post("/checklists.json", params=params)
         response.raise_for_status()
-        return response.json()
+        return await self._safe_json(response)
 
     async def add_task(self, list_id: int, content: str, parent_id: int = None, position: int = None):
         """ Add a new task to a checklist. """
@@ -63,7 +73,7 @@ class CheckvistClient:
             
         response = await self.client.post(f"/checklists/{list_id}/tasks.json", params=data)
         response.raise_for_status()
-        return response.json()
+        return await self._safe_json(response)
 
     async def update_task(self, list_id: int, task_id: int, content: str = None, priority: int = None):
         """ Update an existing task. """
@@ -81,19 +91,19 @@ class CheckvistClient:
         """ Mark a task as closed. """
         response = await self.client.post(f"/checklists/{list_id}/tasks/{task_id}/close.json")
         response.raise_for_status()
-        return response.json()
+        return await self._safe_json(response)
 
     async def reopen_task(self, list_id: int, task_id: int):
         """ Reopen a closed task. """
         response = await self.client.post(f"/checklists/{list_id}/tasks/{task_id}/reopen.json")
         response.raise_for_status()
-        return response.json()
+        return await self._safe_json(response)
 
     async def get_task(self, list_id: int, task_id: int):
         """ Get a specific task. """
         response = await self.client.get(f"/checklists/{list_id}/tasks/{task_id}.json")
         response.raise_for_status()
-        return response.json()
+        return await self._safe_json(response)
 
     async def get_task_breadcrumbs(self, list_id: int, task_id: int):
         """ Get the breadcrumb path for a task. 
@@ -127,7 +137,7 @@ class CheckvistClient:
         data = {"task[parent_id]": parent_id}
         response = await self.client.put(f"/checklists/{list_id}/tasks/{task_id}.json", params=data)
         response.raise_for_status()
-        return response.json()
+        return await self._safe_json(response)
 
     async def move_task_to_list(self, list_id: int, task_id: int, target_list_id: int, target_parent_id: int = None):
         """ Move a task to a different checklist. """
@@ -137,7 +147,7 @@ class CheckvistClient:
             
         response = await self.client.post(f"/checklists/{list_id}/tasks/{task_id}/move.json", params=params)
         response.raise_for_status()
-        return response.json()
+        return await self._safe_json(response)
 
     async def import_tasks(self, list_id: int, content: str, parent_id: int = None, position: int = None):
         """ Import tasks in bulk using Checkvist's hierarchical text format. """
@@ -152,14 +162,14 @@ class CheckvistClient:
             
         response = await self.client.post(f"/checklists/{list_id}/import.json", params=params)
         response.raise_for_status()
-        return response.json()
+        return await self._safe_json(response)
 
     async def add_note(self, list_id: int, task_id: int, note: str):
         """ Add a comment/note to a specific task. """
         data = {"comment[comment]": note}
         response = await self.client.post(f"/checklists/{list_id}/tasks/{task_id}/comments.json", params=data)
         response.raise_for_status()
-        return response.json()
+        return await self._safe_json(response)
 
     async def update_task(self, list_id: int, task_id: int, content: str = None, priority: int = None, due_date: str = None, tags: str = None):
         """ Update an existing task's properties. """
@@ -171,7 +181,14 @@ class CheckvistClient:
         
         response = await self.client.put(f"/checklists/{list_id}/tasks/{task_id}.json", params=data)
         response.raise_for_status()
-        return response.json()
+        return await self._safe_json(response)
+
+    async def rename_checklist(self, list_id: int, name: str):
+        """ Rename an existing checklist. """
+        data = {"checklist[name]": name}
+        response = await self.client.put(f"/checklists/{list_id}.json", params=data)
+        response.raise_for_status()
+        return await self._safe_json(response)
 
     async def search_tasks(self, query: str):
         """ Search for tasks using Checkvist's search logic where possible, 

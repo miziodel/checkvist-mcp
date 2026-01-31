@@ -81,6 +81,15 @@ When the Agent calls `create_list(name="New Project")`
 Then a new checklist is created with the given name.
 ```
 
+### TASK-005: Rename Checklist
+*Vision Match: Foundation / PARA Maintenance*
+```gherkin
+Given a checklist ID
+When the Agent calls `rename_list(list_id, new_name="Archived: Projects")`
+Then the checklist name is updated in Checkvist.
+And internal cross-links (ID-based) remain functional.
+```
+
 ---
 
 ## 🐞 Bug Fixes & Robustness (BUG)
@@ -93,6 +102,14 @@ When the Agent calls `close_task(list_id, task_id)`
 Then the server correctly casts IDs to integers
 And handles the API response safely even if it's a list or dictionary
 And returns a successful confirmation message.
+```
+
+### BUG-002: Handle 204 No Content
+*Issue: JSON parsing error on empty bodies from move/migrate operations.*
+```gherkin
+Given a move or migration operation
+When the API returns HTTP 204 (No Content)
+Then the client should bypass JSON parsing and return success.
 ```
 
 ---
