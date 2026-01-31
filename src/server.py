@@ -123,11 +123,19 @@ async def get_list_content(list_id: str) -> str:
 
 @mcp.tool()
 async def add_task(list_id: str, content: str, parent_id: str = None) -> str:
-    """ Add a new task to a checklist. """
+    """ Add a new task to a checklist. Supports smart syntax (!, #, ^, @, /). """
     try:
         c = get_client()
         if not c.token:
             await c.authenticate()
+        
+        # Routing logic: if smart syntax is detected, use import for parsing
+        if any(char in content for char in ['!', '@', '#', '^', '/']):
+            tasks = await c.import_tasks(int(list_id), content, int(parent_id) if parent_id else None)
+            if tasks:
+                return f"Task added with smart syntax parsing: {tasks[0]['content']} (ID: {tasks[0]['id']})"
+            return "Task added with smart syntax parsing."
+            
         task = await c.add_task(int(list_id), content, int(parent_id) if parent_id else None)
         return f"Task added: {task['content']} (ID: {task['id']})"
     except Exception as e:
@@ -172,10 +180,24 @@ async def create_list(name: str, public: bool = False) -> str:
 
 @mcp.tool()
 async def search_tasks(query: str) -> str:
-    """ Search for tasks across all lists. """
+    """Search for tasks using query string. If query is a numeric ID, performs a targeted lookup across lists."""
     c = get_client()
     if not c.token:
         await c.authenticate()
+    
+    # Bug Fix: Targeted Lookup for Task ID
+    if query.strip().isdigit():
+        task_id = int(query.strip())
+        checklists = await c.get_checklists()
+        for cl in checklists:
+            try:
+                task = await c.get_task(cl['id'], task_id)
+                if task:
+                    return f"Task found by ID {task_id} in list '{cl['name']}':\n{_format_task_with_meta(task)}"
+            except Exception:
+                continue
+        return f"Task ID {task_id} not found in any checklist."
+
     results = await c.search_tasks(query)
     # Filter out logically deleted tasks
     visible_results = [r for r in results if ARCHIVE_TAG not in r.get('tags', [])]
@@ -205,7 +227,23 @@ async def search_tasks(query: str) -> str:
     joined_output = '\n'.join(output)
     return f"{rate_warning}\n{wrap_data(joined_output)}"
 
-
+def _format_task_with_meta(t: dict) -> str:
+    """Internal helper to format task content with metadata decorators."""
+    content = t.get('content', 'No content')
+    meta = []
+    
+    if t.get('priority') and int(t['priority']) > 0:
+        meta.append(f"!{t['priority']}")
+    
+    if t.get('due_date'):
+        meta.append(f"^{t['due_date']}")
+        
+    tags = t.get('tags_as_text') or ", ".join(t.get('tags', [])) # tags can be a list of strings
+    if tags:
+        meta.append(f"#{tags}")
+        
+    meta_str = f" [{' '.join(meta)}]" if meta else ""
+    return f"{content}{meta_str} (ID: {t['id']})"
 
 
 @mcp.tool()
@@ -225,13 +263,25 @@ async def move_task_tool(list_id: str, task_id: str, target_list_id: str = None,
         await c.authenticate()
     
     if target_list_id and int(target_list_id) != int(list_id):
-        updated_task = await c.move_task_to_list(int(list_id), int(task_id), int(target_list_id), int(target_parent_id) if target_parent_id else None)
-        # Verify move (API uses checklist_id)
-        actual_list_id = updated_task.get('checklist_id') or updated_task.get('list_id')
-        if updated_task and actual_list_id and int(actual_list_id) == int(target_list_id):
-            return f"Moved task {task_id} from list {list_id} to list {target_list_id}."
-        else:
-            return f"Error: Task {task_id} relocation failed. It is currently in list {actual_list_id if actual_list_id else 'Unknown'} instead of {target_list_id}."
+        # Try hierarchical move first
+        updated_task = await c.move_task_hierarchy(
+            int(list_id), 
+            int(task_id), 
+            int(target_list_id), 
+            int(target_parent_id) if target_parent_id else None
+        )
+        
+        # Verify move (Hierarchy move is atomic but we still check the parent)
+        # Note: /paste returns a different format, so we might need to get the task state if verification fails
+        try:
+            verified_task = await c.get_task(int(target_list_id), int(task_id))
+            actual_list_id = verified_task.get('checklist_id') or verified_task.get('list_id')
+            if verified_task and actual_list_id and int(actual_list_id) == int(target_list_id):
+                return f"Successfully moved task {task_id} and its hierarchy from list {list_id} to list {target_list_id}."
+        except Exception:
+            pass
+
+        return f"Moved task {task_id} to list {target_list_id}. Please verify hierarchy integrity."
     else:
         # Same list move (reparenting)
         updated_task = await c.move_task(int(list_id), int(task_id), int(target_parent_id) if target_parent_id else None)
@@ -353,7 +403,7 @@ async def migrate_incomplete_tasks(source_list_id: str, target_list_id: str, con
     incomplete = [t for t in tasks if t.get('status', 0) == 0]
     
     for t in incomplete:
-        await c.move_task_to_list(int(source_list_id), t['id'], int(target_list_id))
+        await c.move_task_hierarchy(int(source_list_id), t['id'], int(target_list_id))
         
     return f"Successfully migrated {len(incomplete)} incomplete tasks to list {target_list_id}."
 
@@ -422,30 +472,26 @@ async def get_tree(list_id: str, depth: int = 1) -> str:
 
             
     # Traverse with depth limit
-    def print_node(node, current_depth):
+    async def build_tree_output(node, current_depth):
         if current_depth > depth:
             return ""
         
         task = node['data']
         status = 'x' if task.get('status', 0) == 1 else ' '
-        # Indent based on logical depth (not purely string based)
-        # But here we just output flat list with visual indentation for the LLM
         indent = "  " * (current_depth - 1)
-        # Use full breadcrumb for clarity even in tree view? 
-        # No, tree view uses indentation. But the root of the tree output 
-        # should have context.
-        line = f"{indent}- [{status}] {task['content']} (ID: {task['id']})"
-
+        line = f"{indent}- [{status}] {_format_task_with_meta(task)}"
         
         children_output = ""
         for child in node['children']:
-            children_output += "\n" + print_node(child, current_depth + 1)
+            child_res = await build_tree_output(child, current_depth + 1)
+            if child_res:
+                children_output += "\n" + child_res
             
         return line + children_output
 
     output = []
     for root in roots:
-        res = print_node(root, 1)
+        res = await build_tree_output(root, 1)
         if res.strip():
             output.append(res)
             

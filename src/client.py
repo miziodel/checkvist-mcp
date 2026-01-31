@@ -75,18 +75,6 @@ class CheckvistClient:
         response.raise_for_status()
         return await self._safe_json(response)
 
-    async def update_task(self, list_id: int, task_id: int, content: str = None, priority: int = None):
-        """ Update an existing task. """
-        data = {}
-        if content:
-            data["task[content]"] = content
-        if priority is not None:
-            data["task[priority]"] = priority
-            
-        response = await self.client.put(f"/checklists/{list_id}/tasks/{task_id}.json", params=data)
-        response.raise_for_status()
-        return response.json()
-
     async def close_task(self, list_id: int, task_id: int):
         """ Mark a task as closed. """
         response = await self.client.post(f"/checklists/{list_id}/tasks/{task_id}/close.json")
@@ -139,22 +127,37 @@ class CheckvistClient:
         response.raise_for_status()
         return await self._safe_json(response)
 
-    async def move_task_to_list(self, list_id: int, task_id: int, target_list_id: int, target_parent_id: int = None):
-        """ Move a task to a different checklist. """
-        params = {"task[checklist_id]": target_list_id}
+
+    async def move_task_hierarchy(self, list_id: int, task_id: int, target_list_id: int, target_parent_id: int = None):
+        """ Move a task and all its children to a different checklist. 
+            Uses the undocumented /paste endpoint found via UI forensics. 
+        """
+        # Pattern: POST /checklists/{source_list_id}/tasks/{task_id}/paste
+        # Params: move_to={target_list_id}&task_ids={task_id}
+        url = f"/checklists/{list_id}/tasks/{task_id}/paste"
+        params = {
+            "move_to": target_list_id,
+            "task_ids": task_id
+        }
         if target_parent_id:
-            params["task[parent_id]"] = target_parent_id
+            params["target_parent_id"] = target_parent_id
             
-        # Per diagnostics, cross-list move is achieved via PUT to the task endpoint with task[checklist_id]
-        response = await self.client.put(f"/checklists/{list_id}/tasks/{task_id}.json", params=params)
+        response = await self.client.post(url, params=params)
         response.raise_for_status()
-        return await self._safe_json(response)
+        
+        # The paste endpoint returns a JS-like response (text/javascript), not JSON.
+        # We treat 200 OK as success.
+        try:
+            return await self._safe_json(response)
+        except Exception:
+            # Fallback for JS responses
+            return {"status": "ok", "message": "Hierarchy moved successfully"}
 
     async def import_tasks(self, list_id: int, content: str, parent_id: int = None, position: int = None):
         """ Import tasks in bulk using Checkvist's hierarchical text format. """
         params = {
             "import_content": content,
-            "parse_tasks": "true" # Enable smart syntax parsing
+            "parse_tasks": 1 # Use numeric 1 as per some API examples
         }
         if parent_id:
             params["parent_id"] = parent_id
@@ -172,15 +175,17 @@ class CheckvistClient:
         response.raise_for_status()
         return await self._safe_json(response)
 
-    async def update_task(self, list_id: int, task_id: int, content: str = None, priority: int = None, due_date: str = None, tags: str = None):
-        """ Update an existing task's properties. """
-        data = {}
-        if content: data["task[content]"] = content
-        if priority is not None: data["task[priority]"] = priority
-        if due_date: data["task[due_date]"] = due_date
-        if tags: data["task[tags]"] = tags
-        
-        response = await self.client.put(f"/checklists/{list_id}/tasks/{task_id}.json", params=data)
+    async def update_task(self, list_id: int, task_id: int, content: str = None, priority: int = None, tags: str = None, due_date: str = None):
+        """ Update task details. Supports smart syntax if content is provided. """
+        params = {}
+        if content: 
+            params["task[content]"] = content
+            params["parse"] = "true" # Enable smart syntax parsing for content updates
+        if priority is not None: params["task[priority]"] = priority
+        if tags: params["task[tags]"] = tags
+        if due_date: params["task[due_date]"] = due_date
+            
+        response = await self.client.put(f"/checklists/{list_id}/tasks/{task_id}.json", params=params)
         response.raise_for_status()
         return await self._safe_json(response)
 
@@ -188,6 +193,18 @@ class CheckvistClient:
         """ Rename an existing checklist. """
         data = {"checklist[name]": name}
         response = await self.client.put(f"/checklists/{list_id}.json", params=data)
+        response.raise_for_status()
+        return await self._safe_json(response)
+
+    async def delete_checklist(self, list_id: int):
+        """ Delete a checklist. """
+        response = await self.client.delete(f"/checklists/{list_id}.json")
+        response.raise_for_status()
+        return await self._safe_json(response)
+
+    async def delete_task(self, list_id: int, task_id: int):
+        """ Delete a task. """
+        response = await self.client.delete(f"/checklists/{list_id}/tasks/{task_id}.json")
         response.raise_for_status()
         return await self._safe_json(response)
 

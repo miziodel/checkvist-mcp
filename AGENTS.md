@@ -19,14 +19,16 @@ status: active
 ### 🧪 QA Analyst
 - **Mission**: Enforce the "Automatic tests before code" law.
 - **Focus**: Edge cases, error handling, and regression testing.
+- **New Task**: Hierarchy integrity verification and "Shallow Move" prevention.
 
 ### 👤 Final User
 - **Mission**: Advocate for a frictionless experience.
 - **Focus**: UX of the LLM interaction—how "natural" does it feel?
+- **New Task**: Smart syntax support and metadata visualization.
 
 ### 📑 Checkvist Expert
-- **Mission**: Leverage Checkvist's unique features (hierarchies, keyboard shortcuts style, etc.).
-- **Focus**: Checkvist specific patterns and data structures.
+- **Mission**: Leverage Checkvist's unique features.
+- **Focus**: Undocumented API discovery and `/paste` endpoint forensics.
 
 ### 🕒 Time Management & Project Management Expert
 - **Mission**: Optimize workflows for efficiency and project delivery.

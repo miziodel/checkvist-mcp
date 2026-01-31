@@ -12,6 +12,7 @@ Welcome to the Checkvist MCP documentation. This hub ensures 100% connectivity a
 - **[Vision & Roadmap](vision.md)**: The underlying philosophy and project direction.
 - **[Architecture](architecture.md)**: Technical design and tool definitions.
 - **[Risks & Mitigation](risks.md)**: Analysis of constraints and safety measures.
+- **[Risk Mitigation Status](risk_mitigation_status.md)**: Real-time status of safety implementations.
 
 ## 🛠 Usage & Integration
 - **[Use Cases](use-cases.md)**: Detailed scenarios and agentic workflows.
@@ -30,8 +31,8 @@ Welcome to the Checkvist MCP documentation. This hub ensures 100% connectivity a
 - **[Lessons Learned](lessons_learned.md)**: Reflections on development and agentic best practices.
 - **Testing Playbooks**:
     - [Functional Scenarios](../tests/SCENARIOS.md)
-    - [Human Testing Playbook](../tests/PLAYBOOK.md)
-    - [Verification Guide](../tests/VERIFICATION_GUIDE.md)
+- [Human Testing Playbook](../tests/PLAYBOOK.md)
+- [Verification Guide](../tests/VERIFICATION_GUIDE.md)
 
 ---
 [← Back to Main README](../README.md)

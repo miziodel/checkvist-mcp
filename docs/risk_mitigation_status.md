@@ -1,6 +1,12 @@
+---
+version: 1.1.0
+last_modified: 2026-01-31
+status: active
+---
+
 # Checkvist MCP: Risk Mitigation Status
 
-This document tracks the implementation status of risks identified in [risks.md](file:///Users/NOBKP/checkvist-mcp/docs/risks.md).
+This document tracks the implementation status of risks identified in [risks.md](/docs/risks.md).
 
 | Risk                        | Status         | Mitigation Strategy                                                           |
 | :-------------------------- | :------------- | :---------------------------------------------------------------------------- |

@@ -67,13 +67,33 @@ class StatefulMockClient:
         # Mock doesn't store notes but simulates success
         return {"id": 1, "comment": note}
 
-    async def move_task_to_list(self, list_id, task_id, target_list_id, target_parent_id=None):
+
+    async def move_task_hierarchy(self, list_id, task_id, target_list_id, target_parent_id=None):
+        """Mock hierarchical move by moving the task and all its descendants."""
+        def get_descendant_ids(pid):
+            descendants = []
+            for t in self.tasks:
+                if t["parent_id"] == pid:
+                    descendants.append(t["id"])
+                    descendants.extend(get_descendant_ids(t["id"]))
+            return descendants
+
+        target_ids = [int(task_id)] + get_descendant_ids(int(task_id))
+        
+        for t in self.tasks:
+            if t["id"] in target_ids:
+                t["list_id"] = int(target_list_id)
+                if t["id"] == int(task_id):
+                    t["parent_id"] = int(target_parent_id) if target_parent_id else None
+        
+        return {"status": "ok"}
+
+    async def move_task(self, list_id, task_id, parent_id):
+        """Move a task to a new parent within the same list."""
         for t in self.tasks:
             if t["id"] == int(task_id):
-                t["list_id"] = int(target_list_id)
-                t["parent_id"] = int(target_parent_id) if target_parent_id else None
-                # Return standard API field
-                return {**t, "checklist_id": int(target_list_id)}
+                t["parent_id"] = int(parent_id) if parent_id else None
+                return t
         raise ValueError("Task not found")
 
     async def search_tasks(self, query):

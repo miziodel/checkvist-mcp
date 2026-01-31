@@ -24,14 +24,14 @@ In Antigravity, è fondamentale che gli argomenti siano separati correttamente. 
 | Field | Value |
 | :--- | :--- |
 | **Server Name** | `checkvist` |
-| **Command** | `/absolute/path/to/checkvist-mcp/.venv/bin/python` |
-| **Arguments** | `/absolute/path/to/checkvist-mcp/src/server.py` |
+| **Command** | `path/to/.venv/bin/python` |
+| **Arguments** | `path/to/src/server.py` |
 
 ### Metodo Consigliato: File `.env` (Più Sicuro)
 
 Per evitare di scrivere le tue credenziali direttamente nella configurazione di Antigravity:
 
-1.  Assicurati che esista un file `.env` nella cartella root del progetto (`/Users/NOBKP/checkvist-mcp/.env`).
+1.  Assicurati che esista un file `.env` nella cartella root del progetto.
 2.  All'interno, inserisci le tue credenziali:
     ```env
     CHECKVIST_USERNAME=tua_email@esempio.com
@@ -43,19 +43,19 @@ Per evitare di scrivere le tue credenziali direttamente nella configurazione di 
 
 ```json
 "checkvist-mcp": {
-  "command": "/absolute/path/to/checkvist-mcp/.venv/bin/python",
+  "command": "path/to/.venv/bin/python",
   "args": [
-    "/absolute/path/to/checkvist-mcp/src/server.py"
+    "path/to/src/server.py"
   ],
   "env": {
-    "PYTHONPATH": "/absolute/path/to/checkvist-mcp"
+    "PYTHONPATH": "path/to/checkvist-mcp"
   }
 }
 ```
 
 ### Environment Variables
 
-*   `PYTHONPATH`: `/absolute/path/to/checkvist-mcp` (**Obbligatorio**).
+*   `PYTHONPATH`: `path/to/checkvist-mcp` (**Obbligatorio**).
 *   `CHECKVIST_USERNAME` e `CHECKVIST_API_KEY`: (Opzionali se presenti nel file `.env`).
 
 ## 🔍 Troubleshooting
