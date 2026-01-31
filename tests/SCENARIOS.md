@@ -9,7 +9,7 @@ status: active
 | Phase             | Scenario IDs | Vision Pillar           | Concept                                    |
 | ----------------- | ------------ | ----------------------- | ------------------------------------------ |
 | **1: Discovery**  | `DISC-*`     | **Foundation**          | Basis for any context-aware action.        |
-| **2: Tasks**      | `TASK-*`     | **Foundation**          | Core CRUD operations.                      |
+| **2: Tasks**      | `TASK-*`, `BUG-*` | **Foundation**          | Core CRUD operations & Robustness.         |
 | **3: Bulk Ops**   | `BULK-*`     | **Linear / Superhuman** | High-speed triage and project scaffolding. |
 | **4: Enrichment** | `META-*`     | **GitHub / Todoist**    | Dependencies, priorities, and smart tags.  |
 | **5: Processes**  | `PROC-*`     | **Readwise / Linear**   | Autonomous triage and idea resurfacing.    |
@@ -132,6 +132,22 @@ Then the children are also moved and remain nested under the original parent.
 Given a task with tag "urgent" and content "Fix bug"
 When the Agent calls `search_tasks(query="urgent")`
 Then the task is found even if "urgent" is not in the content.
+```
+
+### BUG-006: Archive Task List-Wrapped Response
+*Issue: API occasionally returns task object wrapped in a list, causing attribute errors.*
+```gherkin
+Given a task ID
+When the API returns `[{...}]` instead of `{...}` for a task fetch/update during archive
+Then the server correctly unwraps the list before accessing task attributes.
+```
+
+### BUG-007: Template Hierarchy Loss
+*Issue: apply_template flattens nested tasks to root level or skips them.*
+```gherkin
+Given a template list with a 3-level hierarchy (Root > Child > Grandchild)
+When the Agent calls `apply_template`
+Then the target list contains the same 3-level hierarchy with correct indentation.
 ```
 
 ---

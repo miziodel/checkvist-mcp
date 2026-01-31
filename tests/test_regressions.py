@@ -2,7 +2,7 @@ import pytest
 import httpx
 import time
 from unittest.mock import MagicMock, patch, AsyncMock
-from src.server import move_task_tool, search_tasks, archive_task, ARCHIVE_TAG
+from src.server import move_task_tool, search_tasks, archive_task, apply_template, ARCHIVE_TAG
 from src.client import CheckvistClient
 
 # --- BUG FIXES & ROBUSTNESS ---
@@ -150,3 +150,52 @@ async def test_safe_005_triage_safeguards(stateful_client):
     assert "[!IMPORTANT]" in res3
     res4 = await apply_template("999", "100")
     assert "[!IMPORTANT]" in res4
+
+@pytest.mark.asyncio
+async def test_bug_006_archive_task_list_wrapped_response():
+    """BUG-006: Verify archive_task handles list-wrapped responses."""
+    mock_client = AsyncMock(spec=CheckvistClient)
+    mock_client.token = "token"
+    # Mock get_tasks to return simple structure
+    mock_client.get_tasks.return_value = [{"id": 1, "content": "Task 1", "tags": []}]
+    mock_client.update_task = AsyncMock()
+    
+    with patch("src.server.get_client", return_value=mock_client):
+        result = await archive_task("100", "1")
+        assert "successfully archived" in result
+        mock_client.update_task.assert_called()
+
+@pytest.mark.asyncio
+async def test_bug_006_repro_attribute_error():
+    """BUG-006: Specifically reproduce the 'list' has no attribute 'get' error fix."""
+    mock_client = AsyncMock(spec=CheckvistClient)
+    mock_client.token = "token"
+    mock_client.get_tasks.return_value = [{"id": 1, "content": "P", "parent_id": None}]
+    mock_client.update_task = AsyncMock()
+    
+    with patch("src.server.get_client", return_value=mock_client):
+        # We need to mock 'next' to return a list for target_task
+        with patch("src.server.next", return_value=[{"id": 1, "content": "P", "tags": []}]):
+            result = await archive_task("100", "1")
+            assert "successfully archived" in result
+
+@pytest.mark.asyncio
+async def test_bug_007_template_hierarchy_preservation():
+    """BUG-007: Verify apply_template maintains hierarchy in import_tasks."""
+    mock_client = AsyncMock(spec=CheckvistClient)
+    mock_client.token = "token"
+    # Setup a hierarchy: 1 -> 2 -> 3
+    mock_client.get_tasks.return_value = [
+        {"id": 1, "content": "Root", "parent_id": 0},
+        {"id": 2, "content": "Child", "parent_id": 1},
+        {"id": 3, "content": "Grandchild", "parent_id": 2}
+    ]
+    mock_client.import_tasks = AsyncMock()
+    
+    with patch("src.server.get_client", return_value=mock_client):
+        await apply_template("999", "100", confirmed=True)
+        
+        args, _ = mock_client.import_tasks.call_args
+        content = args[1]
+        expected = "Root\n  Child\n    Grandchild"
+        assert content == expected

@@ -26,6 +26,8 @@ Execution of `pytest tests` passed (60/60 tests). The suite now includes `tests/
 | BUG-003     | Tag Robustness        | ✅           | ✅      | Covered              |
 | BUG-004     | Hierarchy Loss Move   | ✅           | ✅      | Covered              |
 | BUG-005     | Search Tags Scope     | ✅           | ✅      | Covered              |
+| BUG-006     | Archive List Wrapping | ✅           | ✅      | Covered              |
+| BUG-007     | Template Hierarchy    | ✅           | ✅      | Covered              |
 | BULK-001    | Bulk Import           | ✅           | ✅      | Covered              |
 | BULK-002    | Internal Reparenting  | ✅           | ✅      | Covered              |
 | BULK-003    | Cross-List Migration  | ✅           | ✅      | Covered              |

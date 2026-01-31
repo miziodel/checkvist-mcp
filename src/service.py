@@ -113,6 +113,9 @@ class CheckvistService:
         """Robust archiving (Fix BUG-002)."""
         client = await self._get_authed_client()
         task = await client.get_task(list_id, task_id)
+        # Robust handling for list-wrapped task responses
+        if isinstance(task, list) and len(task) > 0:
+            task = task[0]
         
         tags = task.get('tags', [])
         # Robust tag conversion (Fix BUG-002)

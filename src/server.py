@@ -183,15 +183,6 @@ async def add_task(list_id: str, content: str, parent_id: str = None) -> str:
     except Exception as e:
         return f"Error adding task: {str(e)}"
 
-@mcp.tool()
-async def archive_task(list_id: str, task_id: str) -> str:
-    """ Logically delete a task (and its subtasks) by adding the '#deleted' tag. """
-    try:
-        s = get_service()
-        await s.archive_task(int(list_id), int(task_id))
-        return f"Task {task_id} and its subtasks successfully archived with tag #{ARCHIVE_TAG}."
-    except Exception as e:
-        return f"Error archiving task: {str(e)}"
 
 @mcp.tool()
 async def close_task(list_id: str, task_id: str) -> str:
@@ -390,13 +381,56 @@ async def apply_template(template_list_id: str, target_list_id: str, confirmed: 
     if not template_tasks:
         return f"Error: Template list {template_list_id} is empty or not found."
         
-    # Filter for root tasks to avoid duplicating children twice 
-    import_text = "\n".join([t['content'] for t in template_tasks if t.get('parent_id') is None])
+    # Build hierarchy (Logic from service.get_tree but unfiltered)
+    task_map = {t['id']: {'data': t, 'children': []} for t in template_tasks}
+    roots = []
+    for t in template_tasks:
+        pid = t.get('parent_id')
+        is_root = pid is None or pid == 0 or pid == ""
+        if not is_root and pid in task_map:
+            task_map[pid]['children'].append(task_map[t['id']])
+        else:
+            roots.append(task_map[t['id']])
+
+    # Convert hierarchy to indented text with Smart Syntax reconstruction
+    def build_lines(nodes, level=0):
+        txt_lines = []
+        for node in nodes:
+            task = node['data']
+            
+            # Filter archived tasks (BUG-006 related)
+            tags = task.get('tags', [])
+            if ARCHIVE_TAG in tags:
+                continue
+
+            # Reconstruct content with Smart Syntax (Metadata Preservation)
+            content = task.get('content', '')
+            
+            # Priority (!1, !2, ...) - Only if not already in content
+            priority = task.get('priority')
+            if priority and f"!{priority}" not in content:
+                content += f" !{priority}"
+            
+            # Tags (#tag) - Only if not ARCHIVE_TAG and not already in content
+            for tag in tags:
+                if tag != ARCHIVE_TAG and f"#{tag}" not in content:
+                    content += f" #{tag}"
+            
+            # Due Date (^date) - natural language or YYYY-MM-DD
+            due = task.get('due_date')
+            if due and f"^{due}" not in content:
+                content += f" ^{due}"
+
+            txt_lines.append("  " * level + content)
+            txt_lines.extend(build_lines(node['children'], level + 1))
+        return txt_lines
+
+    import_text = "\n".join(build_lines(roots))
     if not import_text.strip():
-         return f"Error: No root tasks found in template list {template_list_id}."
+         return f"Error: No tasks found in template list {template_list_id}."
          
     await c.import_tasks(int(target_list_id), import_text)
-    return f"Template applied to list {target_list_id}. Imported root tasks from template."
+    return f"Template applied to list {target_list_id}. Imported hierarchical structure from template."
 
 @mcp.tool()
 async def get_review_data(timeframe: str = "weekly") -> str:
@@ -594,7 +628,10 @@ async def archive_task(list_id: str, task_id: str) -> str:
         
         # 3. Apply tag to all
         for t in targets:
-            # Bug Fix: Ensure current_tags is always a LIST to avoid AttributeError: 'dict' object has no attribute 'append'
+            # Handle list-wrapped task (Robustness BUG-001/002)
+            if isinstance(t, list) and len(t) > 0:
+                t = t[0]
+            
             raw_tags = t.get('tags', [])
             if isinstance(raw_tags, list):
                 current_tags = raw_tags
@@ -611,6 +648,7 @@ async def archive_task(list_id: str, task_id: str) -> str:
         return f"Task {task_id} and {len(descendants)} subtasks successfully archived with tag #{ARCHIVE_TAG}."
     except Exception as e:
         return f"Error archiving task: {str(e)}"
+
 
 
 # --- Documentation Resources ---

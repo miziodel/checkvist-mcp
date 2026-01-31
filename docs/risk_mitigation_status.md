@@ -6,7 +6,7 @@ status: active
 
 # Checkvist MCP: Risk Mitigation Status
 
-This document tracks the implementation status of risks identified in [risks.md](/docs/risks.md).
+This document tracks the implementation status of risks identified in [risks.md](risks.md).
 
 | Risk                        | Status         | Mitigation Strategy                                                           |
 | :-------------------------- | :------------- | :---------------------------------------------------------------------------- |
