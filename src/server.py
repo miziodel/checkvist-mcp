@@ -225,12 +225,26 @@ async def move_task_tool(list_id: str, task_id: str, target_list_id: str = None,
         await c.authenticate()
     
     if target_list_id and int(target_list_id) != int(list_id):
-        await c.move_task_to_list(int(list_id), int(task_id), int(target_list_id), int(target_parent_id) if target_parent_id else None)
-        return f"Moved task {task_id} from list {list_id} to list {target_list_id}."
+        updated_task = await c.move_task_to_list(int(list_id), int(task_id), int(target_list_id), int(target_parent_id) if target_parent_id else None)
+        # Verify move (API uses checklist_id)
+        actual_list_id = updated_task.get('checklist_id') or updated_task.get('list_id')
+        if updated_task and actual_list_id and int(actual_list_id) == int(target_list_id):
+            return f"Moved task {task_id} from list {list_id} to list {target_list_id}."
+        else:
+            return f"Error: Task {task_id} relocation failed. It is currently in list {actual_list_id if actual_list_id else 'Unknown'} instead of {target_list_id}."
     else:
         # Same list move (reparenting)
-        await c.move_task(int(list_id), int(task_id), int(target_parent_id) if target_parent_id else None)
-        return f"Moved task {task_id} under new parent {target_parent_id if target_parent_id else 'root'} in list {list_id}."
+        updated_task = await c.move_task(int(list_id), int(task_id), int(target_parent_id) if target_parent_id else None)
+        # Verify reparenting
+        target_pid = int(target_parent_id) if target_parent_id else None
+        actual_pid = updated_task.get('parent_id') if updated_task else 'Unknown'
+        
+        # Note: Checkvist might return None or 0 for root parents depending on version, 
+        # but our mock and client handle None.
+        if updated_task and updated_task.get('parent_id') == target_pid:
+            return f"Moved task {task_id} under new parent {target_parent_id if target_parent_id else 'root'} in list {list_id}."
+        else:
+            return f"Error: Task {task_id} reparenting failed. Current parent: {actual_pid}, Requested: {target_pid}."
 
 @mcp.tool()
 async def import_tasks(list_id: str, content: str, parent_id: str = None) -> str:

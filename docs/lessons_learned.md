@@ -1,9 +1,17 @@
+---
+version: 1.1.0
+last_modified: 2026-01-31
+status: active
+---
+
 # Lessons Learned: Checkvist MCP Development
 
 ## ⚙️ Technical Insights
 
 ### 1. Checkvist API Quirks
 - **Unpredictable Response Types**: The `close_task` endpoint (and potentially others) can return a list `[{"id": ...}]` instead of a dictionary even for single actions. Always use robust type checking (`isinstance()`) before accessing keys.
+- **Undocumented/Non-functional Endpoints**: The `move.json` POST endpoint (often guessed for moves) exists but returns an empty body and performs no action for cross-list moves. 
+- **Hidden Signatures**: Cross-list moves are correctly achieved via a **PUT request to the task endpoint with `task[checklist_id]`**.
 - **Type Coercion**: LLM clients may send IDs as strings. Explicitly casting input parameters to `int` in the tool layer prevents `TypeError` and `AttributeError` during API calls.
 
 ### 2. Robust Error Handling

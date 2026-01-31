@@ -1,6 +1,6 @@
 ---
-version: 1.1.0
-last_modified: 2026-01-28
+version: 1.1.1
+last_modified: 2026-01-31
 status: active
 ---
 
@@ -71,14 +71,14 @@ See the **[Client Setup Guide](docs/client_setup.md)** for a ready-to-use JSON s
 
 ## 🧩 Features (WIP)
 
-| Feature | Status | Description |
-| :--- | :--- | :--- |
-| **Auth** | ✅ Ready | Basic Auth via API Key. |
-| **Read Lists** | ✅ Ready | Fetch list content (Flat). |
-| **Add Task** | ✅ Ready | Simple append to bottom. |
-| **Smart Triage** | 🚧 Planned | Inbox management & moves. |
-| **Context** | 🚧 Planned | Deep search & Breadcrumbs. |
-| **Tree View** | 🚧 Planned | Hierarchy-aware fetching. |
+| Feature          | Status      | Description                  |
+| :--------------- | :---------- | :--------------------------- |
+| **Auth**         | ✅ Ready    | Basic Auth via API Key.      |
+| **Read Lists**   | ✅ Ready    | Fetch list content (Flat).   |
+| **Add Task**     | ✅ Ready    | Simple append to bottom.     |
+| **Smart Triage** | ✅ Ready    | Task movement between lists. |
+| **Context**      | 🚧 Planned | Deep search & Breadcrumbs.   |
+| **Tree View**    | 🚧 Planned | Hierarchy-aware fetching.    |
 
 ## 🛡️ "Choice Architecture" & Safety
 

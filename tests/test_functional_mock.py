@@ -27,7 +27,8 @@ def mock_client(mocker):
     client_mock.get_checklists.return_value = MOCK_LISTS
     client_mock.get_tasks.return_value = MOCK_TASKS
     client_mock.add_task.return_value = {"id": 106, "content": "New Task"}
-    client_mock.move_task_to_list.return_value = {"id": 501, "content": "Buy Milk"}
+    client_mock.move_task_to_list.return_value = {"id": 501, "content": "Buy Milk", "checklist_id": 888}
+    client_mock.move_task.return_value = {"id": 102, "content": "Implement Login", "parent_id": 999}
     client_mock.import_tasks.return_value = [{"id": 201, "content": "Imported 1"}]
     client_mock.add_note.return_value = {"id": 1, "comment": "Mock Note"}
     client_mock.update_task.return_value = {"id": 101, "priority": 1}
@@ -77,6 +78,12 @@ async def test_triage_cross_list_move(mock_client):
     result = await move_task_tool(list_id="999", task_id="501", target_list_id="888", confirmed=True)
     mock_client.move_task_to_list.assert_called_with(999, 501, 888, None)
     assert "from list 999 to list 888" in result
+@pytest.mark.asyncio
+async def test_triage_same_list_move(mock_client):
+    # Move task 102 under parent 999 in list 100
+    result = await move_task_tool(list_id="100", task_id="102", target_parent_id="999", confirmed=True)
+    mock_client.move_task.assert_called_with(100, 102, 999)
+    assert "under new parent 999 in list 100" in result
 
 
 # --- MANAGEMENT TESTS ---

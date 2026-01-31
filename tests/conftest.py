@@ -72,7 +72,8 @@ class StatefulMockClient:
             if t["id"] == int(task_id):
                 t["list_id"] = int(target_list_id)
                 t["parent_id"] = int(target_parent_id) if target_parent_id else None
-                return t
+                # Return standard API field
+                return {**t, "checklist_id": int(target_list_id)}
         raise ValueError("Task not found")
 
     async def search_tasks(self, query):

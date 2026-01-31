@@ -141,11 +141,12 @@ class CheckvistClient:
 
     async def move_task_to_list(self, list_id: int, task_id: int, target_list_id: int, target_parent_id: int = None):
         """ Move a task to a different checklist. """
-        params = {"target_list_id": target_list_id}
+        params = {"task[checklist_id]": target_list_id}
         if target_parent_id:
-            params["target_parent_id"] = target_parent_id
+            params["task[parent_id]"] = target_parent_id
             
-        response = await self.client.post(f"/checklists/{list_id}/tasks/{task_id}/move.json", params=params)
+        # Per diagnostics, cross-list move is achieved via PUT to the task endpoint with task[checklist_id]
+        response = await self.client.put(f"/checklists/{list_id}/tasks/{task_id}.json", params=params)
         response.raise_for_status()
         return await self._safe_json(response)
 

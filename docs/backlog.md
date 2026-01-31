@@ -1,3 +1,9 @@
+---
+version: 1.0.1
+last_modified: 2026-01-31
+status: active
+---
+
 # Checkvist MCP Backlog
 
 This document tracks features and improvements that are deferred due to risk, complexity, or pending clarification.
@@ -34,3 +40,8 @@ This document tracks features and improvements that are deferred due to risk, co
 ### 5. Logical Deletion Mechanism
 - **Status**: Proposed as safer alternative to `delete_task`.
 - **Goal**: Implement a mechanism for logical deletion based on tags or similar markers, to prevent accidental data loss while allowing users to "cleanup" views.
+
+### 6. Enhanced Authentication Security
+- **Status**: New request.
+- **Goal**: Investigate if we can create a connection with something more secure than basic auth with an API key (e.g., OAuth2, session tokens, etc.).
+- **Concerns**: Balancing security with the "Developer Ergonomics" of an MCP server.
