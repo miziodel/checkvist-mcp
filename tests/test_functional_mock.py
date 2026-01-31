@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import AsyncMock
 from src.server import (
     mcp, get_client, add_task, import_tasks,
-    add_note, set_priority, triage_inbox, move_task_tool,
+    add_note, update_task, triage_inbox, move_task_tool,
     close_task, create_list, search_tasks
 )
 
@@ -62,10 +62,10 @@ async def test_content_add_note(mock_client):
     assert "Note added" in result
 
 @pytest.mark.asyncio
-async def test_content_set_priority(mock_client):
-    result = await set_priority(list_id="100", task_id="101", priority=1)
-    mock_client.update_task.assert_called_with(100, 101, priority=1)
-    assert "Priority set to" in result
+async def test_content_update_task(mock_client):
+    result = await update_task(list_id="100", task_id="101", priority=1)
+    mock_client.update_task.assert_called_with(100, 101, content=None, priority=1, due_date=None, tags=None)
+    assert "Task 101 updated" in result
 
 # --- TRIAGE TESTS ---
 

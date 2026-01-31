@@ -143,8 +143,18 @@ class StatefulMockClient:
                 return t
         raise ValueError("Task not found")
 
+    async def rename_checklist(self, list_id, name):
+        for l in self.lists:
+            if l["id"] == int(list_id):
+                l["name"] = name
+                return l
+        raise ValueError("List not found")
+
 @pytest.fixture
 def stateful_client(mocker):
     client = StatefulMockClient()
     mocker.patch("src.server.get_client", return_value=client)
+    # Reset rate limit counter for each test
+    import src.server
+    src.server.TOOL_CALL_COUNT = 0
     return client

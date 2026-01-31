@@ -1,0 +1,47 @@
+---
+version: 1.1.0
+last_modified: 2026-01-31
+status: active
+---
+
+# Test Coverage vs Scenarios Report
+Date: 2026-01-31
+
+## Summary
+Execution of `pytest tests` passed (58/58 tests). The suite now includes `tests/test_bug_report_verified.py` and consolidated `update_task` logic, providing 100% verification for all project scenarios.
+
+| Scenario ID | Name                  | Implemented? | Tested? | Status               |
+| ----------- | --------------------- | ------------ | ------- | -------------------- |
+| DISC-001    | List Checklists       | ✅           | ✅      | Covered              |
+| DISC-002    | Search List           | ✅           | ✅      | Covered              |
+| DISC-003    | Tree Analysis         | ✅           | ✅      | Covered              |
+| DISC-004    | Global Task Search    | ✅           | ✅      | Covered              |
+| TASK-001    | Add Task              | ✅           | ✅      | Covered              |
+| TASK-002    | Close Task            | ✅           | ✅      | Covered              |
+| TASK-003    | Reopen Task           | ✅           | ✅      | Covered              |
+| TASK-004    | Create Checklist      | ✅           | ✅      | Covered              |
+| TASK-005    | Rename Checklist      | ✅           | ✅      | Covered              |
+| BUG-001     | Robust Task Closing   | ✅           | ✅      | Covered              |
+| BUG-002     | Handle 204 No Content | ✅           | ✅      | Covered              |
+| BUG-003     | Tag Robustness        | ✅           | ✅      | Covered              |
+| BULK-001    | Bulk Import           | ✅           | ✅      | Covered              |
+| BULK-002    | Internal Reparenting  | ✅           | ✅      | Covered              |
+| BULK-003    | Cross-List Migration  | ✅           | ✅      | Covered              |
+| META-001    | Add Note              | ✅           | ✅      | Covered              |
+| META-002    | Set Priority          | ✅           | ✅      | Covered (via update) |
+| META-003    | Smart Tagging         | ✅           | ✅      | Covered              |
+| META-004    | Due Dates             | ✅           | ✅      | Covered              |
+| PROC-001    | Inbox Zero            | ✅           | ✅      | Covered              |
+| PROC-002    | Idea Resurfacing      | ✅           | ✅      | Covered              |
+| PROC-003    | Templates             | ✅           | ✅      | Covered              |
+| PROC-004    | Periodic Review       | ✅           | ✅      | Covered              |
+| PROC-005    | Cycle Migration       | ✅           | ✅      | Covered              |
+| PROC-006    | Template Verification | ✅           | ✅      | Covered              |
+| SAFE-001    | Logical Deletion      | ✅           | ✅      | Covered              |
+| SAFE-002    | Injection Delimiters  | ✅           | ✅      | Covered              |
+| SAFE-003    | Rate Limit Warning    | ✅           | ✅      | Covered              |
+| SAFE-004    | Breadcrumbs           | ✅           | ✅      | Covered              |
+| SAFE-005    | Triage Confirmation   | ✅           | ✅      | Covered              |
+
+## Recommendations
+Maintain the `tests/test_bug_report_verified.py` file for all future regressions to keep the core scenario tests clean.

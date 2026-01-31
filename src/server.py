@@ -364,16 +364,28 @@ async def add_note(list_id: str, task_id: str, note: str) -> str:
         return f"Error adding note to task {task_id}: {str(e)}"
 
 @mcp.tool()
-async def set_priority(list_id: str, task_id: str, priority: int) -> str:
+async def update_task(list_id: str, task_id: str, content: str = None, priority: int = None, due: str = None, tags: str = None) -> str:
     """ 
-    Set task priority (1-6, where 1 is highest/red, 6 is lowest). 
-    Use 0 to remove priority.
+    Update a task's properties. 
+    Can update content, priority (1-6), due date (natural language), and tags (comma-separated).
     """
-    c = get_client()
-    if not c.token:
-        await c.authenticate()
-    await c.update_task(int(list_id), int(task_id), priority=priority)
-    return f"Priority set to {priority} for task {task_id}."
+    try:
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
+        
+        # Mapping 'due' from tool param to 'due_date' for client
+        updated = await c.update_task(
+            int(list_id), 
+            int(task_id), 
+            content=content, 
+            priority=priority, 
+            due_date=due, 
+            tags=tags
+        )
+        return f"Task {task_id} updated: {_format_task_with_meta(updated)}"
+    except Exception as e:
+        return f"Error updating task {task_id}: {str(e)}"
 
 @mcp.tool()
 async def rename_list(list_id: str, new_name: str) -> str:
@@ -388,16 +400,16 @@ async def rename_list(list_id: str, new_name: str) -> str:
         return f"Error renaming list: {str(e)}"
 
 @mcp.tool()
-async def set_due_date(list_id: str, task_id: str, due: str) -> str:
-    """ 
-    Set a task due date using Checkvist's smart natural language syntax.
-    Examples: 'tomorrow', 'next mon', '2024-12-31', 'in 3 days'.
-    """
-    c = get_client()
-    if not c.token:
-        await c.authenticate()
-    await c.update_task(int(list_id), int(task_id), due_date=due)
-    return f"Due date set to '{due}' for task {task_id}."
+async def reopen_task(list_id: str, task_id: str) -> str:
+    """ Reopen a closed task. """
+    try:
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
+        task = await c.reopen_task(int(list_id), int(task_id))
+        return f"Task reopened: {task.get('content', 'Unknown')} (ID: {task['id']})"
+    except Exception as e:
+        return f"Error reopening task: {str(e)}"
 
 @mcp.tool()
 async def apply_template(template_list_id: str, target_list_id: str, confirmed: bool = False) -> str:

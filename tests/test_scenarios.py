@@ -1,10 +1,10 @@
 import pytest
 from src.server import (
     list_checklists, search_list, get_tree, search_tasks,
-    add_task, close_task, get_list_content,
+    add_task, close_task, reopen_task, get_list_content,
     import_tasks, move_task_tool,
-    add_note, set_priority, set_due_date,
-    apply_template, migrate_incomplete_tasks,
+    add_note, update_task,
+    apply_template, migrate_incomplete_tasks, rename_list,
     archive_task
 )
 
@@ -47,6 +47,16 @@ async def test_phase2_task_management(stateful_client):
     await close_task(list_id="999", task_id=str(task_id))
     inbox_content = await get_list_content(list_id="999")
     assert "[x] Clean the kitchen" in inbox_content
+    
+    # TASK-003: Reopen task
+    await reopen_task(list_id="999", task_id=str(task_id))
+    inbox_content = await get_list_content(list_id="999")
+    assert "[ ] Clean the kitchen" in inbox_content
+    
+    # TASK-005: Rename Checklist
+    await rename_list(list_id="100", new_name="Work - Primary")
+    res = await list_checklists()
+    assert "Work - Primary" in res
 
 @pytest.mark.asyncio
 async def test_phase3_bulk_operations(stateful_client):
@@ -82,13 +92,17 @@ async def test_phase4_enrichment(stateful_client):
     # Verify mock state
     # (Note: StatefulMock doesn't track notes yet, but we check if tool exists and doesn't crash)
     
-    # META-002: Set priority
-    await set_priority(list_id="100", task_id="2", priority=3)
+    # META-002: Set priority (via update_task)
+    await update_task(list_id="100", task_id="2", priority=3)
     task = next(t for t in stateful_client.tasks if t["id"] == 2)
     assert task["priority"] == 3
     
-    # META-004: Set due date
-    await set_due_date(list_id="100", task_id="2", due="tomorrow")
+    # META-003: Smart Tagging
+    await update_task(list_id="100", task_id="2", tags="urgent, mcp")
+    assert "urgent" in task["tags"]
+    
+    # META-004: Set due date (via update_task)
+    await update_task(list_id="100", task_id="2", due="tomorrow")
     assert task["due_date"] == "tomorrow"
     
     # META-005: Metadata Visibility

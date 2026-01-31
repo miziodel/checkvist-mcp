@@ -34,5 +34,8 @@ Welcome to the Checkvist MCP documentation. This hub ensures 100% connectivity a
 - [Human Testing Playbook](../tests/PLAYBOOK.md)
 - [Verification Guide](../tests/VERIFICATION_GUIDE.md)
 
+## 📊 Audit & Quality
+- **[Test Coverage Report](../tests/COVERAGE_REPORT.md)**: Mapping scenarios to implementation.
+
 ---
 [← Back to Main README](../README.md)
