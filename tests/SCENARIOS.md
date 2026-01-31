@@ -94,14 +94,12 @@ And internal cross-links (ID-based) remain functional.
 
 ## 🐞 Bug Fixes & Robustness (BUG)
 
-### BUG-001: Robust Task Closing
-*Issue: Systematic failure when closing tasks due to type or structural mismatch.*
+### BUG-001: Robust Task Operations
+*Issue: Systematic failure when closing or archiving tasks due to API response format variability.*
 ```gherkin
-Given a list_id and task_id (possibly as strings)
-When the Agent calls `close_task(list_id, task_id)`
-Then the server correctly casts IDs to integers
-And handles the API response safely even if it's a list or dictionary
-And returns a successful confirmation message.
+Given a list_id and task_id
+When the Agent calls `close_task` or `archive_task`
+Then the server handles the API response safely even if it's a list or dictionary.
 ```
 
 ### BUG-002: Handle 204 No Content
@@ -110,6 +108,14 @@ And returns a successful confirmation message.
 Given a move or migration operation
 When the API returns HTTP 204 (No Content)
 Then the client should bypass JSON parsing and return success.
+```
+
+### BUG-003: Tag Robustness (Dictionary vs List)
+*Issue: Crash in archive_task when tags are returned as a dictionary.*
+```gherkin
+Given a task where the API returns tags as a dictionary (key-indexed)
+When the Agent calls `archive_task`
+Then the server correctly converts the dictionary keys to a list before appending `#deleted`.
 ```
 
 ---
@@ -172,6 +178,25 @@ When the Agent calls `set_due_date(list_id, task_id, due="tomorrow")`
 Then the task due date is updated using Checkvist's smart syntax.
 ```
 
+### META-005: Metadata Visibility
+*Vision Match: Full Context / Deep Work*
+```gherkin
+When the Agent calls `get_tree` or `search_tasks`
+Then the output includes visual decorators for metadata:
+- Priorities (e.g., `!1`)
+- Due dates (e.g., `^2026-12-31`)
+- Tags (e.g., `#deleted`, `#urgent`)
+```
+
+### META-006: Expanded Smart Syntax Support
+*Vision Match: Superhuman Efficiency*
+```gherkin
+When the Agent calls `add_task` with content containing:
+- High priority markers (e.g., `!!1`)
+- Internal links or ID references (e.g., `[id:123]`)
+Then the tool triggers `parse=True` to ensure Checkvist processes these symbols.
+```
+
 ---
 
 ## 🤖 Phase 5: Advanced Workflows (PROC)
@@ -214,6 +239,14 @@ When the Agent calls `migrate_incomplete_tasks(source_list_id, target_list_id)`
 Then all tasks with status 0 are moved to the target list.
 ```
 
+### PROC-006: Template Verification
+*Vision Match: Safety / Robust Automation*
+```gherkin
+Given an empty or invalid template checklist
+When the Agent calls `apply_template`
+Then it returns a clear error message instead of reporting "Template applied".
+```
+
 ---
 ## 🛡️ Phase 6: Risk Mitigation & Safety (SAFE)
 *Goal: Ensure data integrity and system robustness.*
@@ -223,8 +256,8 @@ Then all tasks with status 0 are moved to the target list.
 ```gherkin
 Given a list_id and task_id
 When the Agent calls `archive_task(list_id, task_id)`
-Then the task is assigned the tag "#deleted"
-And subsequent calls to `get_tree` or `get_list_content` exclude this task.
+Then the task (and all its subtasks) are assigned the tag "#deleted"
+And subsequent calls to `get_tree` or `get_list_content` exclude this entire branch.
 ```
 
 ### SAFE-002: Prompt Injection Delimiters

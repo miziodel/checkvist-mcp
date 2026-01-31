@@ -1,5 +1,6 @@
 import os
 import asyncio
+import re
 from mcp.server.fastmcp import FastMCP
 from src.client import CheckvistClient
 from dotenv import load_dotenv
@@ -123,20 +124,54 @@ async def get_list_content(list_id: str) -> str:
 
 @mcp.tool()
 async def add_task(list_id: str, content: str, parent_id: str = None) -> str:
-    """ Add a new task to a checklist. Supports smart syntax (!, #, ^, @, /). """
+    """
+    Add one or more tasks to a checklist.
+    
+    Smart Syntax Support:
+    - #tag: Adds a tag and removes it from the task text.
+    - !1, !2, !3: Sets priority (1=highest/red) and removes it from text.
+    - !!1: Shorthand for high priority (mapped to !1).
+    - ^date: Sets due date (e.g. ^tomorrow, ^2024-12-31).
+    - @person: Assigns a person (if supported by list).
+    - [Label](/cvt/ID): Internal Checkvist link to a task.
+    - [Label](/checklists/ID): Internal Checkvist link to a checklist.
+    
+    If content has multiple lines, it will be automatically imported as a hierarchy.
+    """
     try:
         c = get_client()
         if not c.token:
             await c.authenticate()
         
-        # Routing logic: if smart syntax is detected, use import for parsing
-        if any(char in content for char in ['!', '@', '#', '^', '/']):
-            tasks = await c.import_tasks(int(list_id), content, int(parent_id) if parent_id else None)
+        # Routing logic: 
+        # If it looks like a single-line task with smart syntax, use add_task with parse=True
+        # to ensure tags are recognized but potentially kept in content (depending on API).
+        # Actually, Checkvist's 'parse' on add_task is the standard way to handle symbols.
+        
+        # If content has multiple lines, or we specifically want import, we'd use import_tasks.
+        # For a single task, add_task is safer for 'content' preservation.
+        
+        # Pre-process '!!+' to '!' for priority (Checkvist internal syntax)
+        processed_content = re.sub(r'!!+', '!', content)
+        
+        # Detection list: !, #, ^ (Checkvist core), @, / (additional), [ (Links)
+        has_symbols = any(char in processed_content for char in ['!', '@', '#', '^', '/', '['])
+        
+        # For single tasks with symbols, we use import_tasks instead of add_task(parse=True)
+        # because import_tasks is much more reliable at stripping parsed metadata from the content string.
+        if has_symbols and "\n" not in processed_content.strip():
+            # We use import_tasks logic even for single line if it has symbols
+            tasks = await c.import_tasks(int(list_id), processed_content, int(parent_id) if parent_id else None)
             if tasks:
-                return f"Task added with smart syntax parsing: {tasks[0]['content']} (ID: {tasks[0]['id']})"
+                return f"Task added with smart syntax parsing (via import): {tasks[0].get('content', 'Unknown')} (ID: {tasks[0]['id']})"
             return "Task added with smart syntax parsing."
+        elif has_symbols:
+            tasks = await c.import_tasks(int(list_id), processed_content, int(parent_id) if parent_id else None)
+            if tasks:
+                return f"Multiple tasks imported with smart syntax: {len(tasks)} items added."
+            return "Tasks imported."
             
-        task = await c.add_task(int(list_id), content, int(parent_id) if parent_id else None)
+        task = await c.add_task(int(list_id), processed_content, int(parent_id) if parent_id else None)
         return f"Task added: {task['content']} (ID: {task['id']})"
     except Exception as e:
         return f"Error adding task: {str(e)}"
@@ -298,25 +333,42 @@ async def move_task_tool(list_id: str, task_id: str, target_list_id: str = None,
 
 @mcp.tool()
 async def import_tasks(list_id: str, content: str, parent_id: str = None) -> str:
-    """ Bulk import tasks using a hierarchical text format (one per line, indent with 2 spaces). """
+    """
+    Bulk import tasks using Checkvist's hierarchical text format.
+    Each line is a task. Indentation with 2 spaces creates subtasks.
+    
+    Smart Syntax parsing is enabled by default for all lines (!priority, #tag, ^due).
+    """
     c = get_client()
     if not c.token:
         await c.authenticate()
-    tasks = await c.import_tasks(int(list_id), content, int(parent_id) if parent_id else None)
+    # Pre-process '!!+' to '!' for priority normalization
+    processed_content = re.sub(r'!!+', '!', content)
+    
+    tasks = await c.import_tasks(int(list_id), processed_content, int(parent_id) if parent_id else None)
     return f"Tasks imported successfully. New items count: {len(tasks)}"
 
 @mcp.tool()
 async def add_note(list_id: str, task_id: str, note: str) -> str:
-    """ Add a note (comment) to a specific task. """
-    c = get_client()
-    if not c.token:
-        await c.authenticate()
-    await c.add_note(int(list_id), int(task_id), note)
-    return f"Note added to task {task_id} in list {list_id}."
+    """ 
+    Add a note (comment) to a specific task. 
+    Use this to attach context, documentation, or discussion to an existing item.
+    """
+    try:
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
+        await c.add_note(int(list_id), int(task_id), note)
+        return f"Note added to task {task_id} in list {list_id}."
+    except Exception as e:
+        return f"Error adding note to task {task_id}: {str(e)}"
 
 @mcp.tool()
 async def set_priority(list_id: str, task_id: str, priority: int) -> str:
-    """ Set task priority (1-6, where 1 is highest/red). Use 0 for no priority. """
+    """ 
+    Set task priority (1-6, where 1 is highest/red, 6 is lowest). 
+    Use 0 to remove priority.
+    """
     c = get_client()
     if not c.token:
         await c.authenticate()
@@ -337,7 +389,10 @@ async def rename_list(list_id: str, new_name: str) -> str:
 
 @mcp.tool()
 async def set_due_date(list_id: str, task_id: str, due: str) -> str:
-    """ Set a due date using Checkvist's smart syntax (e.g., 'tomorrow', 'next mon', '2024-12-31'). """
+    """ 
+    Set a task due date using Checkvist's smart natural language syntax.
+    Examples: 'tomorrow', 'next mon', '2024-12-31', 'in 3 days'.
+    """
     c = get_client()
     if not c.token:
         await c.authenticate()
@@ -358,12 +413,16 @@ async def apply_template(template_list_id: str, target_list_id: str, confirmed: 
         await c.authenticate()
     
     template_tasks = await c.get_tasks(int(template_list_id))
+    if not template_tasks:
+        return f"Error: Template list {template_list_id} is empty or not found."
+        
     # Filter for root tasks to avoid duplicating children twice 
-    # (import_tasks handles hierarchy if we provide the right text)
-    # For simplicity, we use import_tasks with the content of all tasks
     import_text = "\n".join([t['content'] for t in template_tasks if t.get('parent_id') is None])
+    if not import_text.strip():
+         return f"Error: No root tasks found in template list {template_list_id}."
+         
     await c.import_tasks(int(target_list_id), import_text)
-    return f"Template applied to list {target_list_id}."
+    return f"Template applied to list {target_list_id}. Imported root tasks from template."
 
 @mcp.tool()
 async def get_review_data(timeframe: str = "weekly") -> str:
@@ -537,22 +596,54 @@ async def resurface_ideas() -> str:
 
 @mcp.tool()
 async def archive_task(list_id: str, task_id: str) -> str:
-    """ Logically delete a task by adding the '#deleted' tag. """
+    """ 
+    Logically delete a task (and all its subtasks) by adding the '#deleted' tag.
+    Note: Archived tasks are filtered out from tree views and search results.
+    """
     try:
         c = get_client()
         if not c.token:
             await c.authenticate()
         
-        # Get current task to preserve other tags if possible
-        # (Though update_task with tags=... usually replaces)
-        task = await c.get_task(int(list_id), int(task_id))
-        current_tags = task.get('tags', [])
+        l_id = int(list_id)
+        t_id = int(task_id)
         
-        if ARCHIVE_TAG not in current_tags:
-            current_tags.append(ARCHIVE_TAG)
+        # 1. Fetch all tasks in list to identify subtasks
+        all_tasks = await c.get_tasks(l_id)
+        
+        # 2. Identify target task and its descendants
+        def get_descendants(pid, tasks):
+            descendants = []
+            for t in tasks:
+                if t.get('parent_id') == pid:
+                    descendants.append(t)
+                    descendants.extend(get_descendants(t['id'], tasks))
+            return descendants
             
-        await c.update_task(int(list_id), int(task_id), tags=",".join(current_tags))
-        return f"Task {task_id} successfully archived with tag #{ARCHIVE_TAG}."
+        target_task = next((t for t in all_tasks if t['id'] == t_id), None)
+        if not target_task:
+            return f"Error: Task {task_id} not found in list {list_id}."
+            
+        descendants = get_descendants(t_id, all_tasks)
+        targets = [target_task] + descendants
+        
+        # 3. Apply tag to all
+        for t in targets:
+            # Bug Fix: Ensure current_tags is always a LIST to avoid AttributeError: 'dict' object has no attribute 'append'
+            raw_tags = t.get('tags', [])
+            if isinstance(raw_tags, list):
+                current_tags = raw_tags
+            elif isinstance(raw_tags, dict):
+                # If it's a dict (e.g. metadata or unexpected API format), convert to list or start fresh
+                current_tags = list(raw_tags.keys()) if raw_tags else []
+            else:
+                current_tags = []
+
+            if ARCHIVE_TAG not in current_tags:
+                current_tags.append(ARCHIVE_TAG)
+                await c.update_task(l_id, t['id'], tags=",".join(current_tags))
+                
+        return f"Task {task_id} and {len(descendants)} subtasks successfully archived with tag #{ARCHIVE_TAG}."
     except Exception as e:
         return f"Error archiving task: {str(e)}"
 

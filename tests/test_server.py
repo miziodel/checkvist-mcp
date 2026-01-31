@@ -46,6 +46,21 @@ async def test_add_task_tool():
         from src.server import add_task
         result = await add_task("1", "New Task")
         assert "Task added: New Task (ID: 12)" in result
+        mock_client.add_task.assert_called_with(1, "New Task", None)
+
+@pytest.mark.asyncio
+async def test_add_task_smart_syntax_routing():
+    mock_client = MagicMock()
+    mock_client.token = "mock_token"
+    mock_client.add_task = AsyncMock(return_value={"id": 12, "content": "Task #tag"})
+    
+    with patch("src.server.get_client", return_value=mock_client):
+        from src.server import add_task
+        # Single line with #tag should use import_tasks for reliability
+        mock_client.import_tasks = AsyncMock(return_value=[{"id": 12, "content": "Task"}])
+        result = await add_task("1", "Task #tag")
+        assert "via import" in result
+        mock_client.import_tasks.assert_called_with(1, "Task #tag", None)
 
 @pytest.mark.asyncio
 async def test_search_tasks_tool():
@@ -75,27 +90,30 @@ async def test_create_list_tool():
 # --- RISK MITIGATION & SAFETY TESTS ---
 
 @pytest.mark.asyncio
-async def test_logical_deletion_archive_task(stateful_client):
-    """SAFE-001: Verify archive_task adds '#deleted' tag and filters it out."""
-    from src.server import archive_task, get_list_content
+async def test_recursive_logical_deletion_archive_task(stateful_client):
+    """SAFE-001: Verify archive_task adds '#deleted' tag recursively."""
+    from src.server import archive_task, get_list_content, get_tree
     
-    # 1. Archive a task
-    list_id = "200"
-    task_id = "1" # "Latte" in stateful_client
+    # 1. Setup: Parent (100) -> Child (1001)
+    await stateful_client.add_task(100, "Parent", parent_id=None)
+    parent_id = stateful_client.tasks[-1]["id"]
+    await stateful_client.add_task(100, "Child", parent_id=parent_id)
+    child_id = stateful_client.tasks[-1]["id"]
     
-    result = await archive_task(list_id, task_id)
-    assert f"successfully archived with tag #{ARCHIVE_TAG}" in result
+    # 2. Archive parent
+    result = await archive_task("100", str(parent_id))
+    assert "successfully archived" in result
     
-    # Verify tag was added in the mock client
-    task = next(t for t in stateful_client.tasks if t["id"] == int(task_id))
-    assert ARCHIVE_TAG in task["tags"]
+    # 3. Verify both have the tag
+    parent = next(t for t in stateful_client.tasks if t["id"] == parent_id)
+    child = next(t for t in stateful_client.tasks if t["id"] == child_id)
+    assert ARCHIVE_TAG in parent["tags"]
+    assert ARCHIVE_TAG in child["tags"]
     
-    # 2. Verify it's filtered out from get_list_content
-    content = await get_list_content(list_id)
-    assert "Latte" not in content
-
-@pytest.mark.asyncio
-async def test_prompt_injection_delimiters():
+    # 4. Verify they are filtered out
+    tree_content = await get_tree("100")
+    assert "Parent" not in tree_content
+    assert "Child" not in tree_content
     """SAFE-002: Verify XML delimiters are present in tool output."""
     from src.server import get_list_content
     
@@ -198,3 +216,73 @@ async def test_review_data_wrapping(stateful_client):
     assert "Review Report (daily)" in result
     assert "Work" in result
 
+@pytest.mark.asyncio
+async def test_archive_task_robustness():
+    """BUG-001: Verify archive_task handles list response from get_task."""
+    from src.server import archive_task
+    mock_client = MagicMock()
+    mock_client.token = "mock_token"
+    # Note: archive_task now uses get_tasks(list_id) to handle recursion
+    mock_client.get_tasks = AsyncMock(return_value=[{"id": 10, "content": "Task", "tags": []}])
+    mock_client.update_task = AsyncMock(return_value={})
+    
+    with patch("src.server.get_client", return_value=mock_client):
+        result = await archive_task("1", "10")
+        assert "successfully archived" in result
+        mock_client.update_task.assert_called_with(1, 10, tags=ARCHIVE_TAG)
+@pytest.mark.asyncio
+async def test_archive_task_dict_tags_robustness():
+    """BUG-003: Verify archive_task handles tags as a dict."""
+    from src.server import archive_task
+    mock_client = MagicMock()
+    mock_client.token = "mock_token"
+    mock_client.get_tasks = AsyncMock(return_value=[
+        {"id": 10, "content": "Task", "tags": {"existing": "tag"}}
+    ])
+    mock_client.update_task = AsyncMock(return_value={})
+    
+    with patch("src.server.get_client", return_value=mock_client):
+        result = await archive_task("1", "10")
+        assert "successfully archived" in result
+        # Should convert dict keys and add ARCHIVE_TAG
+        args, kwargs = mock_client.update_task.call_args
+        tags = kwargs.get('tags', "")
+        assert ARCHIVE_TAG in tags
+        assert "existing" in tags
+
+@pytest.mark.asyncio
+async def test_add_task_smart_syntax_expanded_routing():
+    """META-006: Verify !! and [id:...] trigger parse=True."""
+    from src.server import add_task
+    mock_client = MagicMock()
+    mock_client.token = "mock_token"
+    mock_client.add_task = AsyncMock(return_value={"id": 12, "content": "Task"})
+    
+    with patch("src.server.get_client", return_value=mock_client):
+        # Case: Internal Link [id:123]
+        mock_client.import_tasks = AsyncMock(return_value=[{"id": 12, "content": "Task"}])
+        await add_task("1", "Check [id:123]")
+        mock_client.import_tasks.assert_called_with(1, "Check [id:123]", None)
+        
+        # Case: High priority !!
+        await add_task("1", "Urgent !!1")
+        # !!1 should be pre-processed to !1
+        mock_client.import_tasks.assert_called_with(1, "Urgent !1", None)
+
+        # Case: Aggressive priority !!!
+        await add_task("1", "Very Urgent !!!2")
+        # !!!2 should be pre-processed to !2
+        mock_client.import_tasks.assert_called_with(1, "Very Urgent !2", None)
+
+@pytest.mark.asyncio
+async def test_add_note_robustness():
+    """META-001 (Robustness): Verify add_note returns error message on failure."""
+    from src.server import add_note
+    mock_client = MagicMock()
+    mock_client.token = "mock_token"
+    mock_client.add_note = AsyncMock(side_effect=Exception("403 Forbidden"))
+    
+    with patch("src.server.get_client", return_value=mock_client):
+        result = await add_note("1", "10", "New note")
+        assert "Error adding note" in result
+        assert "403 Forbidden" in result

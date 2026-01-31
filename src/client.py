@@ -63,13 +63,15 @@ class CheckvistClient:
         response.raise_for_status()
         return await self._safe_json(response)
 
-    async def add_task(self, list_id: int, content: str, parent_id: int = None, position: int = None):
+    async def add_task(self, list_id: int, content: str, parent_id: int = None, position: int = None, parse: bool = False):
         """ Add a new task to a checklist. """
         data = {"task[content]": content}
         if parent_id:
             data["task[parent_id]"] = parent_id
         if position:
             data["task[position]"] = position
+        if parse:
+            data["parse"] = "true"
             
         response = await self.client.post(f"/checklists/{list_id}/tasks.json", params=data)
         response.raise_for_status()

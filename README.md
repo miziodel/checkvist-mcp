@@ -1,5 +1,5 @@
 ---
-version: 1.1.1
+version: 1.1.2
 last_modified: 2026-01-31
 status: active
 ---
@@ -75,10 +75,10 @@ See the **[Client Setup Guide](docs/client_setup.md)** for a ready-to-use JSON s
 | :--------------- | :---------- | :--------------------------- |
 | **Auth**         | ✅ Ready    | Basic Auth via API Key.      |
 | **Read Lists**   | ✅ Ready    | Fetch list content (Flat).   |
-| **Add Task**     | ✅ Ready    | Simple append to bottom.     |
-| **Smart Triage** | ✅ Ready    | Task movement between lists. |
-| **Context**      | 🚧 Planned | Deep search & Breadcrumbs.   |
-| **Tree View**    | 🚧 Planned | Hierarchy-aware fetching.    |
+| **Add Task**     | ✅ Ready    | Smart Parse & Tagging.       |
+| **Smart Triage** | ✅ Ready    | Hierarchy-aware movement.    |
+| **Tree View**    | ✅ Ready    | Deep exploration & Metadata. |
+| **Maintenance**  | ✅ Ready    | Recursive Logical Archiving (#deleted tag), Smart Syntax normalization (!! -> !), Robust Tag Handling. |
 
 ## 🛡️ "Choice Architecture" & Safety
 

@@ -4,7 +4,8 @@ from src.server import (
     add_task, close_task, get_list_content,
     import_tasks, move_task_tool,
     add_note, set_priority, set_due_date,
-    apply_template, migrate_incomplete_tasks
+    apply_template, migrate_incomplete_tasks,
+    archive_task
 )
 
 @pytest.mark.asyncio
@@ -89,6 +90,11 @@ async def test_phase4_enrichment(stateful_client):
     # META-004: Set due date
     await set_due_date(list_id="100", task_id="2", due="tomorrow")
     assert task["due_date"] == "tomorrow"
+    
+    # META-005: Metadata Visibility
+    tree_res = await get_tree(list_id="100")
+    assert "!3" in tree_res
+    assert "^tomorrow" in tree_res
 
 @pytest.mark.asyncio
 async def test_phase5_advanced_workflows(stateful_client):
@@ -108,6 +114,10 @@ async def test_phase5_advanced_workflows(stateful_client):
     work_content = await get_list_content(list_id="100")
     assert "Step 1" in work_content
     assert "Step 2" in work_content
+
+    # PROC-006: Template Verification (Empty case)
+    res = await apply_template(template_list_id="9999", target_list_id="100", confirmed=True)
+    assert "Error" in res
     
     # PROC-005: Cycle Migration
     # 'Latte' (ID 1) is open in Spesa (200). Move to Work (100).
@@ -118,3 +128,31 @@ async def test_phase5_advanced_workflows(stateful_client):
     assert "Latte" not in spesa_content
     work_content = await get_list_content(list_id="100")
     assert "Latte" in work_content
+
+@pytest.mark.asyncio
+async def test_robustness_scenarios(stateful_client):
+    """Verifies BUG-001, BUG-003, META-006, SAFE-001."""
+    
+    # SAFE-001: Logical Deletion (Archive)
+    # Archive task 2 (Setup API)
+    await archive_task(list_id="100", task_id="2")
+    task = next(t for t in stateful_client.tasks if t["id"] == 2)
+    assert "deleted" in task["tags"]
+    
+    # BUG-003: Tag Robustness (Dictionary vs List)
+    # Simulate a task with dict tags in stateful_client
+    stateful_client.tasks.append({
+        "id": 5000, "content": "Dict Task", "tags": {"old": "tag"}, "status": 0, "parent_id": None, "list_id": 100
+    })
+    await archive_task(list_id="100", task_id="5000")
+    task_dict = next(t for t in stateful_client.tasks if t["id"] == 5000)
+    assert "deleted" in task_dict["tags"]
+    assert "old" in task_dict["tags"]
+    
+    # META-006: Expanded Smart Syntax
+    # !!1 should be pre-processed to !1 and route to import_tasks logic
+    await add_task(list_id="100", content="Urgent !!1")
+    # StatefulMockClient.add_task currently doesn't simulate the parsing logic,
+    # but we verify the tool call doesn't fail and content is preserved/transformed.
+    last_task = stateful_client.tasks[-1]
+    assert "Urgent !1" in last_task["content"]

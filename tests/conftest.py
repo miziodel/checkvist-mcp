@@ -38,13 +38,16 @@ class StatefulMockClient:
             new_tasks.append(t)
         return new_tasks
 
-    async def add_task(self, list_id, content, parent_id=None, position=None):
+    async def add_task(self, list_id, content, parent_id=None, position=None, parse=False):
         new_task = {
             "id": self._get_next_id(),
             "content": content,
             "list_id": int(list_id),
             "status": 0,
-            "parent_id": int(parent_id) if parent_id else None
+            "parent_id": int(parent_id) if parent_id else None,
+            "priority": 0,
+            "tags": [],
+            "due_date": None
         }
         self.tasks.append(new_task)
         return new_task
@@ -111,13 +114,31 @@ class StatefulMockClient:
                 return t
         raise ValueError("Task not found")
 
-    async def update_task(self, list_id, task_id, content=None, priority=None, tags=None, due_date=None):
+    async def delete_task(self, list_id, task_id):
+        target_id = int(task_id)
+        def get_descendant_ids(pid):
+            ids = []
+            for t in self.tasks:
+                if t.get("parent_id") == pid:
+                    ids.append(t["id"])
+                    ids.extend(get_descendant_ids(t["id"]))
+            return ids
+        
+        ids_to_delete = [target_id] + get_descendant_ids(target_id)
+        self.tasks = [t for t in self.tasks if t["id"] not in ids_to_delete]
+        return {"status": "ok"}
 
+    async def update_task(self, list_id, task_id, content=None, priority=None, tags=None, due_date=None):
         for t in self.tasks:
             if t["id"] == int(task_id):
                 if content: t["content"] = content
                 if priority is not None: t["priority"] = priority
-                if tags: t["tags"] = tags
+                if tags is not None:
+                    if isinstance(tags, str):
+                        # API style: comma separated string
+                        t["tags"] = [tag.strip() for tag in tags.split(",") if tag.strip()]
+                    else:
+                        t["tags"] = tags
                 if due_date: t["due_date"] = due_date
                 return t
         raise ValueError("Task not found")
