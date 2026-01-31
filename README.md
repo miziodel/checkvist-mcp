@@ -22,18 +22,11 @@ We are building a server that emulates the best "Pro" workflows from top product
 [Read the Full Vision](docs/vision.md)
 
 ## 📚 Documentation
+The project is "Documentation First". All reference materials are organized in our:
 
-The project is structured to be "Documentation First". Start here:
+- **[📖 Documentation Hub (docs/README.md)](docs/README.md)**
 
--   **[Vision & Roadmap](docs/vision.md)**: The "Why" and "What".
--   **[Use Cases](docs/use-cases.md)**: 10 Core scenarios and 10 "Pro" agentic flows.
--   **[Risks & Mitigation](docs/risks.md)**: Critical analysis of API limits, privacy, and token costs.
--   **[Architecture](docs/architecture.md)**: The technical design (FastMCP + Python).
--   **[The Squad (AGENTS.md)](AGENTS.md)**: Who is building this?
--   **[Functional Scenarios](tests/SCENARIOS.md)**: Gherkin-style walkthrough of every feature.
--   **[Human Testing Playbook](tests/PLAYBOOK.md)**: Manual scenarios for "Vibe Checking".
--   **[Verification Guide](tests/VERIFICATION_GUIDE.md)**: How we test (TDD + Stateful Mocks).
--   **[Client Setup Guide](docs/client_setup.md)**: How to configure the server in your LLM client.
+Start there to explore **Vision, Architecture, Use Cases**, and the **Agentic PKM Research**.
 
 ## 🛠️ Quick Start
 

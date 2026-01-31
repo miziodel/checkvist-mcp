@@ -11,6 +11,16 @@ mcp = FastMCP("Checkvist")
 
 # Initialize client (will be authenticated on the first request or in a lifecycle hook)
 client = None
+DOCS_ROOT = Path(__file__).parent.parent / "docs"
+
+def get_doc_content(path: Path) -> str:
+    """Helper to read documentation files."""
+    try:
+        if path.exists():
+            return path.read_text(encoding="utf-8")
+        return f"Documentation file not found: {path.name}"
+    except Exception as e:
+        return f"Error reading documentation: {str(e)}"
 
 def get_client():
     global client
@@ -322,6 +332,44 @@ async def resurface_ideas() -> str:
         return "No ideas found to resurface."
         
     return "Here are some forgotten tasks/ideas:\n" + "\n".join(candidates)
+
+# --- Documentation Resources ---
+
+@mcp.resource("checkvist://docs/research-index")
+async def get_research_index() -> str:
+    """ Get the central index of all PKM and workflow research. """
+    return get_doc_content(DOCS_ROOT / "research" / "README.md")
+
+@mcp.resource("checkvist://docs/workflow-guide")
+async def get_workflow_guide() -> str:
+    """ Get the practical guide for Agentic Workflows (OST, Transformation Engine, etc.). """
+    return get_doc_content(DOCS_ROOT / "mcp_workflow_guide.md")
+
+# --- Workflow Prompts ---
+
+@mcp.prompt("teresa-torres-strategy")
+def teresa_torres_prompt() -> str:
+    """ Prompt to adopt the Teresa Torres OST (Opportunity Solution Tree) mindset. """
+    return """
+Aids the user in adopting the Teresa Torres mindset for Continuous Discovery on Checkvist.
+1. Use the hierarchy: Outcome -> Opportunity (#opp) -> Solution (#sol) -> Experiment (#exp).
+2. Look for Maslow-based roots in the brain dump (Wellness, Safety, Belonging, Esteem, Growth).
+3. If the user provides a 'Brain Dump', use the 'import_tasks' tool to create the initial tree structure.
+4. Mark every task as an experiment (#exp).
+5. After an experiment is closed, ask for a 'lesson learned' (#lesson).
+"""
+
+@mcp.prompt("agentic-pkm-brainstorm")
+def agentic_pkm_prompt() -> str:
+    """ Prompt for a multi-author AI-PKM brainstorming session. """
+    return """
+Act as a PKM strategist specializing in AI integration. 
+- You can use Dan Shipper's 'Spiral' approach to automate synthesis.
+- You can use Ethan Mollick's 'Cyborg' mode for interactive line-by-line outlining.
+- You can use Tiago Forte's 'Distillation' to summarize branches.
+- You can use Nick Milo's 'Sense-making' to link nodes semantically.
+How can I help you transform your Checkvist outliner today?
+"""
 
 if __name__ == "__main__":
     mcp.run()

@@ -1,3 +1,7 @@
+---
+description: 
+---
+
 # 🔄 Workflow: TDD Cycle (Bug Fix & Feature)
 
 This workflow is mandatory for all core implementation changes in the Checkvist MCP project.
@@ -15,5 +19,5 @@ This workflow is mandatory for all core implementation changes in the Checkvist 
    ```
 6. **Audit**: Run the `meta-audit` to ensure compliance:
    ```bash
-   python /Users/mauriziowep/.gemini/antigravity/skills/meta-audit/scripts/audit_engine.py /Users/NOBKP/checkvist-mcp
+   python ~/.gemini/antigravity/skills/meta-audit/scripts/audit_engine.py /Users/NOBKP/checkvist-mcp
    ```

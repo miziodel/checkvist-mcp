@@ -1,8 +1,10 @@
 ---
-version: 1.0.0
-last_modified: 2026-01-28
+version: 1.1.0
+last_modified: 2026-01-31
 status: active
 ---
+
+[← Home](../README.md)
 
 # Casi d'Uso Fondamentali per un Server MCP basato su Checkvist
 
@@ -220,3 +222,50 @@ Per non perdere mai nulla.
     - Esegue `search_global("server")`.
     - Filtra per rilevanza.
 - **Risposta:** "Non è in 'Lavoro', ma ho trovato un sotto-task 'Configurazione VPS' archiviato nel 2023 sotto 'Esperimenti'. Vuoi che lo ripristini o ti legga solo la nota?"
+
+---
+
+## 12. Workflow "Agentic Discovery" (Teresa Torres Style)
+
+L'integrazione della metodologia di Teresa Torres trasforma Checkvist da semplice outliner a un motore di scoperta continua.
+
+### 12.1 Il Transformation Engine (Brain Dump to Tree)
+L'IA prende i tuoi appunti grezzi e li trasforma in una struttura gerarchica coerente.
+- **Azione:** "Ecco i miei appunti sull'intervista di oggi. Trasformali in un ramo OST sotto 'Discovery Prodotto X'."
+- **Workflow:** L'MCP applica un prompt di trasformazione che identifica Outcome, Opportunities e Solutions, creandoli come nodi logici con i rispettivi tag.
+
+### 12.2 Expert Feedback & Coaching (AI Co-pilot)
+L'IA valuta la qualità della tua struttura decisionale direttamente su Checkvist.
+- **Azione:** "Analizza il ramo 'Strategia 2026'. Ci sono salti logici tra le Opportunities e le Solutions che ho proposto?"
+- **Workflow:** L'MCP legge il ramo, lo analizza secondo i principi OST e aggiunge nodi di commento o suggerimenti di miglioramento.
+
+### 12.3 OST Lifecycle Management
+Manutenzione automatica della gerarchia basata sulla priorità e sul feedback.
+- **Azione:** "Marca tutti gli 'Esperimenti' falliti con il tag #lezione e archiviali, mantenendo però evidente la soluzione che stavano testando."
+- **Workflow:** Automazione del movimento e tagging dei nodi basata sul risultato dei task.
+
+---
+
+## 13. Workflow "The Spiral" (Dan Shipper Style)
+
+Trasforma Checkvist in un generatore di competenze AI.
+- **Azione:** "Analizza questa lista di link grezzi e identifica il 'collo di bottiglia' creativo. Poi crea una bozza di articolo sotto il nodo 'Draft'."
+- **Workflow:** L'IA agisce come uno sintetizzatore just-in-time, riducendo la necessità di organizzazione manuale preventiva in favore della trasformazione immediata del contenuto.
+
+## 14. Workflow "Cyborg Outlining" (Ethan Mollick Style)
+
+Collaborazione simbiotica per il brainstorming.
+- **Azione:** "Espandi il nodo 'Marketing' proponendo 5 idee. Io ne selezionerò qualcuna e tu dovrai scartare le altre e approfondire le sopravvissute."
+- **Workflow:** Un loop interattivo dove l'agente e l'utente costruiscono l'outliner insieme, riga per riga, invece di generare interi rami in una volta sola.
+
+## 15. Workflow "Distillazione Progressiva" (Tiago Forte Style)
+
+Automazione del sistema BASB/PARA.
+- **Azione:** "Esegui una revisione settimanale del ramo 'Progetti Attivi'. Crea un #tldr per ogni progetto e suggerisci quali task spostare nell'Archivio."
+- **Workflow:** L'agente analizza i metadati (date di completamento, note) per distillare l'essenza del progresso e mantenere pulito il sistema PARA.
+
+## 16. Workflow "Semantic Sense-making" (Nick Milo Style)
+
+Rottura dei silos di conoscenza tramite link semantici.
+- **Azione:** "Mentre scrivo queste note sulle 'IA Generative', avvisami se ho argomenti correlati in liste archiviate o in altri progetti."
+- **Workflow:** L'agente esegue ricerche semantiche globali e inserisce commenti con link (`checkvist://...`) per collegare nodi temporalmente o tematicamente distanti.
