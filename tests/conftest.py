@@ -157,4 +157,5 @@ def stateful_client(mocker):
     # Reset rate limit counter for each test
     import src.server
     src.server.TOOL_CALL_COUNT = 0
+    src.server.service = None # Reset service to ensure it picks up the new mock client
     return client

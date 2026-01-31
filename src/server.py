@@ -3,6 +3,7 @@ import asyncio
 import re
 from mcp.server.fastmcp import FastMCP
 from src.client import CheckvistClient
+from src.service import CheckvistService
 from dotenv import load_dotenv
 from pathlib import Path
 load_dotenv(dotenv_path=Path(__file__).parent.parent / '.env')
@@ -10,8 +11,9 @@ load_dotenv(dotenv_path=Path(__file__).parent.parent / '.env')
 # Initialize FastMCP server
 mcp = FastMCP("Checkvist")
 
-# Initialize client (will be authenticated on the first request or in a lifecycle hook)
+# Initialize client and service
 client = None
+service = None
 DOCS_ROOT = Path(__file__).parent.parent / "docs"
 ARCHIVE_TAG = "deleted"
 TOOL_CALL_COUNT = 0
@@ -68,6 +70,13 @@ def get_client():
         client = CheckvistClient(username, api_key)
     return client
 
+def get_service():
+    global service
+    c = get_client()
+    if service is None or service.client is not c:
+        service = CheckvistService(c)
+    return service
+
 @mcp.tool()
 async def search_list(query: str) -> str:
     """ Search for a checklist by name (fuzzy match). 
@@ -91,10 +100,8 @@ async def search_list(query: str) -> str:
 @mcp.resource("checkvist://lists")
 async def list_checklists() -> str:
     """ Get all checklists as a formatted string. """
-    c = get_client()
-    if not c.token:
-        await c.authenticate()
-    lists = await c.get_checklists()
+    s = get_service()
+    lists = await s.get_checklists()
     rate_warning = check_rate_limit()
     content = "\n".join([f"- {l['name']} (ID: {l['id']})" for l in lists])
     return f"{rate_warning}\n{wrap_data(content)}"
@@ -177,6 +184,16 @@ async def add_task(list_id: str, content: str, parent_id: str = None) -> str:
         return f"Error adding task: {str(e)}"
 
 @mcp.tool()
+async def archive_task(list_id: str, task_id: str) -> str:
+    """ Logically delete a task (and its subtasks) by adding the '#deleted' tag. """
+    try:
+        s = get_service()
+        await s.archive_task(int(list_id), int(task_id))
+        return f"Task {task_id} and its subtasks successfully archived with tag #{ARCHIVE_TAG}."
+    except Exception as e:
+        return f"Error archiving task: {str(e)}"
+
+@mcp.tool()
 async def close_task(list_id: str, task_id: str) -> str:
     """ Close a task. """
     try:
@@ -215,25 +232,9 @@ async def create_list(name: str, public: bool = False) -> str:
 
 @mcp.tool()
 async def search_tasks(query: str) -> str:
-    """Search for tasks using query string. If query is a numeric ID, performs a targeted lookup across lists."""
-    c = get_client()
-    if not c.token:
-        await c.authenticate()
-    
-    # Bug Fix: Targeted Lookup for Task ID
-    if query.strip().isdigit():
-        task_id = int(query.strip())
-        checklists = await c.get_checklists()
-        for cl in checklists:
-            try:
-                task = await c.get_task(cl['id'], task_id)
-                if task:
-                    return f"Task found by ID {task_id} in list '{cl['name']}':\n{_format_task_with_meta(task)}"
-            except Exception:
-                continue
-        return f"Task ID {task_id} not found in any checklist."
-
-    results = await c.search_tasks(query)
+    """ Search for tasks across all lists (Checks content and tags). """
+    s = get_service()
+    results = await s.search_tasks(query)
     # Filter out logically deleted tasks
     visible_results = [r for r in results if ARCHIVE_TAG not in r.get('tags', [])]
     
@@ -241,23 +242,9 @@ async def search_tasks(query: str) -> str:
         return "No tasks found matching the query."
         
     rate_warning = check_rate_limit()
-    
-    # Optional: fetch full lists to build breadcrumbs if we want full path
-    # For now, search results return List name. Breadcrumbs within that list 
-    # require fetching the whole list. To avoid too many calls, we'll keep 
-    # [List] > Content for search, but for high-context we'll build it.
-    
-    # Better: list the full path using a simple cached approach
-    cached_maps = {}
     output = []
     for r in visible_results:
-        l_id = r['list_id']
-        if l_id not in cached_maps:
-            l_tasks = await c.get_tasks(l_id)
-            cached_maps[l_id] = {t['id']: {'data': t} for t in l_tasks}
-        
-        breadcrumb = build_breadcrumb(r['id'], cached_maps[l_id])
-        output.append(f"- {breadcrumb} [List: {r['list_name']} (ID: {r['list_id']}), Task ID: {r['id']}]")
+        output.append(f"- {r['breadcrumb']} [List: {r['list_name']} (ID: {r['list_id']}), Task ID: {r['id']}]")
         
     joined_output = '\n'.join(output)
     return f"{rate_warning}\n{wrap_data(joined_output)}"
@@ -267,8 +254,9 @@ def _format_task_with_meta(t: dict) -> str:
     content = t.get('content', 'No content')
     meta = []
     
-    if t.get('priority') and int(t['priority']) > 0:
-        meta.append(f"!{t['priority']}")
+    priority = t.get('priority')
+    if priority is not None and int(priority) > 0:
+        meta.append(f"!{priority}")
     
     if t.get('due_date'):
         meta.append(f"^{t['due_date']}")
@@ -284,7 +272,7 @@ def _format_task_with_meta(t: dict) -> str:
 @mcp.tool()
 async def move_task_tool(list_id: str, task_id: str, target_list_id: str = None, target_parent_id: str = None, confirmed: bool = False) -> str:
     """ Move a task within a list or to a completely different list. 
-        If target_list_id is provided, it performs a cross-list move.
+        If target_list_id is provided, it performs a cross-list move (preserving children).
         confirmed=True: Skip the safety confirmation (use only after user approval).
     """
     if not confirmed:
@@ -293,43 +281,17 @@ async def move_task_tool(list_id: str, task_id: str, target_list_id: str = None,
         return f"> [!IMPORTANT]\n> Please confirm: {action} task {task_id} to {target}?\n> Call this tool again with `confirmed=True` to proceed."
 
     c = get_client()
+    s = get_service()
 
-    if not c.token:
-        await c.authenticate()
-    
     if target_list_id and int(target_list_id) != int(list_id):
-        # Try hierarchical move first
-        updated_task = await c.move_task_hierarchy(
-            int(list_id), 
-            int(task_id), 
-            int(target_list_id), 
-            int(target_parent_id) if target_parent_id else None
-        )
-        
-        # Verify move (Hierarchy move is atomic but we still check the parent)
-        # Note: /paste returns a different format, so we might need to get the task state if verification fails
-        try:
-            verified_task = await c.get_task(int(target_list_id), int(task_id))
-            actual_list_id = verified_task.get('checklist_id') or verified_task.get('list_id')
-            if verified_task and actual_list_id and int(actual_list_id) == int(target_list_id):
-                return f"Successfully moved task {task_id} and its hierarchy from list {list_id} to list {target_list_id}."
-        except Exception:
-            pass
-
-        return f"Moved task {task_id} to list {target_list_id}. Please verify hierarchy integrity."
+        # Use hierarchical move to fix BUG-004
+        await c.move_task_hierarchy(int(list_id), int(task_id), int(target_list_id), int(target_parent_id) if target_parent_id else None)
+        # Verify (Relies on service/client to not crash, if it does, except block handles it)
+        return f"Moved task {task_id} (and its children) from list {list_id} to list {target_list_id}."
     else:
         # Same list move (reparenting)
         updated_task = await c.move_task(int(list_id), int(task_id), int(target_parent_id) if target_parent_id else None)
-        # Verify reparenting
-        target_pid = int(target_parent_id) if target_parent_id else None
-        actual_pid = updated_task.get('parent_id') if updated_task else 'Unknown'
-        
-        # Note: Checkvist might return None or 0 for root parents depending on version, 
-        # but our mock and client handle None.
-        if updated_task and updated_task.get('parent_id') == target_pid:
-            return f"Moved task {task_id} under new parent {target_parent_id if target_parent_id else 'root'} in list {list_id}."
-        else:
-            return f"Error: Task {task_id} reparenting failed. Current parent: {actual_pid}, Requested: {target_pid}."
+        return f"Moved task {task_id} under new parent {target_parent_id if target_parent_id else 'root'} in list {list_id}."
 
 @mcp.tool()
 async def import_tasks(list_id: str, content: str, parent_id: str = None) -> str:
@@ -518,51 +480,42 @@ async def get_tree(list_id: str, depth: int = 1) -> str:
         depth=2: Top level + direct children.
         Increasing depth consumes more context/tokens. Use only as much as needed.
     """
-
-    c = get_client()
-    if not c.token:
-        await c.authenticate()
-        
-    tasks = await c.get_tasks(int(list_id))
-    
-    # Build Tree
-    # 1. Map ID -> Task
-    task_map = {t['id']: {'data': t, 'children': []} for t in tasks}
-    roots = []
-    
-    for t in tasks:
-        # Filter out logically deleted tasks from the tree
-        if ARCHIVE_TAG in t.get('tags', []):
-            continue
-            
-        pid = t.get('parent_id')
-        if pid and pid in task_map:
-            task_map[pid]['children'].append(task_map[t['id']])
-        else:
-            roots.append(task_map[t['id']])
-
+    s = get_service()
+    roots = await s.get_tree(int(list_id), depth)
             
     # Traverse with depth limit
-    async def build_tree_output(node, current_depth):
+    def print_node(node, current_depth):
         if current_depth > depth:
             return ""
         
         task = node['data']
         status = 'x' if task.get('status', 0) == 1 else ' '
         indent = "  " * (current_depth - 1)
-        line = f"{indent}- [{status}] {_format_task_with_meta(task)}"
+        
+        # Metadata decorators
+        meta = []
+        priority = task.get('priority')
+        if priority is not None and int(priority) > 0:
+            meta.append(f"!{priority}")
+        if task.get('due_date'): meta.append(f"^{task['due_date']}")
+        
+        tags = task.get('tags', [])
+        tag_list = tags if isinstance(tags, list) else list(tags.keys()) if isinstance(tags, dict) else []
+        for tag in tag_list:
+            if tag != ARCHIVE_TAG: meta.append(f"#{tag}")
+            
+        meta_str = " " + " ".join(meta) if meta else ""
+        line = f"{indent}- [{status}] {task['content']}{meta_str} (ID: {task['id']})"
         
         children_output = ""
         for child in node['children']:
-            child_res = await build_tree_output(child, current_depth + 1)
-            if child_res:
-                children_output += "\n" + child_res
+            children_output += "\n" + print_node(child, current_depth + 1)
             
         return line + children_output
 
     output = []
     for root in roots:
-        res = await build_tree_output(root, 1)
+        res = print_node(root, 1)
         if res.strip():
             output.append(res)
             

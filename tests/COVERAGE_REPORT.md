@@ -8,7 +8,7 @@ status: active
 Date: 2026-01-31
 
 ## Summary
-Execution of `pytest tests` passed (58/58 tests). The suite now includes `tests/test_bug_report_verified.py` and consolidated `update_task` logic, providing 100% verification for all project scenarios.
+Execution of `pytest tests` passed (60/60 tests). The suite now includes `tests/test_bug_report_verified.py` and consolidated `update_task` logic, providing 100% verification for all project scenarios.
 
 | Scenario ID | Name                  | Implemented? | Tested? | Status               |
 | ----------- | --------------------- | ------------ | ------- | -------------------- |
@@ -24,6 +24,8 @@ Execution of `pytest tests` passed (58/58 tests). The suite now includes `tests/
 | BUG-001     | Robust Task Closing   | ✅           | ✅      | Covered              |
 | BUG-002     | Handle 204 No Content | ✅           | ✅      | Covered              |
 | BUG-003     | Tag Robustness        | ✅           | ✅      | Covered              |
+| BUG-004     | Hierarchy Loss Move   | ✅           | ✅      | Covered              |
+| BUG-005     | Search Tags Scope     | ✅           | ✅      | Covered              |
 | BULK-001    | Bulk Import           | ✅           | ✅      | Covered              |
 | BULK-002    | Internal Reparenting  | ✅           | ✅      | Covered              |
 | BULK-003    | Cross-List Migration  | ✅           | ✅      | Covered              |
@@ -31,6 +33,8 @@ Execution of `pytest tests` passed (58/58 tests). The suite now includes `tests/
 | META-002    | Set Priority          | ✅           | ✅      | Covered (via update) |
 | META-003    | Smart Tagging         | ✅           | ✅      | Covered              |
 | META-004    | Due Dates             | ✅           | ✅      | Covered              |
+| META-005    | Metadata Visibility   | ✅           | ✅      | Covered              |
+| META-006    | Smart Syntax Parsing  | ✅           | ✅      | Covered              |
 | PROC-001    | Inbox Zero            | ✅           | ✅      | Covered              |
 | PROC-002    | Idea Resurfacing      | ✅           | ✅      | Covered              |
 | PROC-003    | Templates             | ✅           | ✅      | Covered              |

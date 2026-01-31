@@ -118,6 +118,22 @@ When the Agent calls `archive_task`
 Then the server correctly converts the dictionary keys to a list before appending `#deleted`.
 ```
 
+### BUG-004: Hierarchy Loss on Cross-List Move
+*Issue: Children are detached (become roots) when migrating a parent task to a new list.*
+```gherkin
+Given a parent task with children
+When the Agent calls `move_task_tool` to a different list
+Then the children are also moved and remain nested under the original parent.
+```
+
+### BUG-005: Search Scope Includes Tags
+*Issue: Search only checks content, missing tasks labeled with searchable tags.*
+```gherkin
+Given a task with tag "urgent" and content "Fix bug"
+When the Agent calls `search_tasks(query="urgent")`
+Then the task is found even if "urgent" is not in the content.
+```
+
 ---
 
 ## 📦 Phase 3: Bulk & Group Operations (BULK)

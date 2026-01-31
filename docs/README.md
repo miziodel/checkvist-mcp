@@ -35,6 +35,8 @@ Welcome to the Checkvist MCP documentation. This hub ensures 100% connectivity a
 - [Verification Guide](../tests/VERIFICATION_GUIDE.md)
 
 ## 📊 Audit & Quality
+- **[Code Audit v2](code_audit_v2.md)**: Comprehensive logic and structure analysis.
+- **[Technical Audit Report](../tests/AUDIT_REPORT.md)**: Test suite and architecture assessment.
 - **[Test Coverage Report](../tests/COVERAGE_REPORT.md)**: Mapping scenarios to implementation.
 
 ---

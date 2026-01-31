@@ -210,3 +210,31 @@ async def test_rename_checklist_success():
         
         assert checklist["id"] == 1
         assert checklist["name"] == "Renamed List"
+
+@pytest.mark.asyncio
+async def test_get_task_breadcrumbs():
+    client = CheckvistClient(username="test", api_key="key")
+    client.token = "token"
+    # Parent -> Child
+    tasks = [
+        {"id": 1, "content": "Parent", "parent_id": None},
+        {"id": 2, "content": "Child", "parent_id": 1},
+    ]
+    with respx.mock:
+        respx.get("https://checkvist.com/checklists/100/tasks.json").mock(
+            return_value=Response(200, json=tasks)
+        )
+        breadcrumbs = await client.get_task_breadcrumbs(100, 2)
+        assert breadcrumbs == "Parent > Child"
+
+@pytest.mark.asyncio
+async def test_move_task_hierarchy_success():
+    client = CheckvistClient(username="test", api_key="key")
+    client.token = "token"
+    with respx.mock:
+        # Checkvist uses /paste endpoint for hierarchy moves
+        respx.post(url__regex=r"https://checkvist.com/checklists/100/tasks/2/paste.*").mock(
+            return_value=Response(200, json={"status": "ok"})
+        )
+        res = await client.move_task_hierarchy(100, 2, 200)
+        assert res["status"] == "ok"
