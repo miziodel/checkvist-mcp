@@ -71,11 +71,13 @@ This document is the single source of truth for all planned improvements, archit
 *Immediate actions from multi-persona strategic debate*
 
 ### Critical (Week 1)
-- [ ] **API Refactor**: Use `with_notes=true&with_tags=true` to reduce API calls by 60%
-- [ ] **Fix `archive_task` Regression**: Achieve 100% success rate with notes, tags, hierarchies
-- [ ] **Fix `apply_template` Regression**: Preserve hierarchy in all cases
-- [ ] **User Trust Audit**: Implement standardized error response format for all tools
+- [x] **API Refactor**: Use `with_notes=true&with_tags=true` to reduce API calls by 60%
+- [x] **Fix `archive_task` Regression**: Achieve 100% success rate with notes, tags, hierarchies
+- [x] **Fix `apply_template` Regression**: Preserve hierarchy in all cases
+- [x] **User Trust Audit**: Implement standardized error response format for all tools
 - [ ] **Resource Leak Audit**: Ensure all `httpx.AsyncClient()` instances have proper `aclose()` calls
+- [ ] **Smart Syntax Import Polyfill**: Implement manual parsing of `^date` and `@user` in `import_tasks` tool (Client-side workaround for API limitation).
+- [ ] **Regression Monitoring**: Monitor Bug #0 (ID Mismatch) and Bug #1 (Add Note 403) via `live_verify.py` (could not reproduce locally).
 
 ### High (Week 2)
 - [ ] **Scenario-to-Test Mapping**: Create `tests/scenario_mapping.md` linking SCENARIOS.md to test files

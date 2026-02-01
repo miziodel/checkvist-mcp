@@ -1,10 +1,35 @@
 import pytest
 import os
 import time
+import json
 from unittest.mock import MagicMock, patch, AsyncMock
 from src.server import mcp, ARCHIVE_TAG
 from src.client import CheckvistClient
+from src.response import StandardResponse
 import asyncio
+
+def test_standard_response_success():
+    """Verify success response formatting."""
+    resp_str = StandardResponse.success("Success message", data={"id": 123})
+    resp = json.loads(resp_str)
+    assert resp["success"] is True
+    assert resp["message"] == "Success message"
+    assert resp["data"]["id"] == 123
+
+def test_standard_response_error():
+    """Verify error response formatting."""
+    resp_str = StandardResponse.error(
+        message="Failed",
+        action="test_action",
+        next_steps="Try again",
+        error_details="Detailed error"
+    )
+    resp = json.loads(resp_str)
+    assert resp["success"] is False
+    assert resp["message"] == "Failed"
+    assert resp["action"] == "test_action"
+    assert resp["next_steps"] == "Try again"
+    assert resp["error_details"] == "Detailed error"
 
 
 @pytest.mark.asyncio
@@ -43,12 +68,16 @@ async def test_get_tree_filters_deleted(stateful_client):
     from src.server import archive_task, get_tree
     await archive_task("100", "2")
     result = await get_tree("100", depth=1)
-    assert "Setup API" not in result
+    data = json.loads(result)
+    assert "Setup API" not in data["data"]
 
 @pytest.mark.asyncio
 async def test_review_data_wrapping(stateful_client):
     """Verify get_review_data uses XML wrapping."""
     from src.server import get_review_data
     result = await get_review_data(timeframe="daily")
-    assert "<user_data>" in result
-    assert "Review Report (daily)" in result
+    data = json.loads(result)
+    assert data["success"] is True
+    assert "Review Report (daily)" in data["message"]
+    # Check if data contains list stats
+    assert any(l["list"] == "Work" for l in data["data"])

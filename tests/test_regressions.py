@@ -1,6 +1,7 @@
 import pytest
 import httpx
 import time
+import json
 from unittest.mock import MagicMock, patch, AsyncMock
 from src.server import move_task_tool, search_tasks, archive_task, apply_template, ARCHIVE_TAG
 from src.client import CheckvistClient
@@ -14,7 +15,8 @@ async def test_bug_001_robust_task_operations(stateful_client):
     with patch("tests.conftest.StatefulMockClient.close_task", new_callable=AsyncMock) as mock_close:
         mock_close.return_value = [{"id": 2, "content": "Robust Close", "status": 1}]
         result = await close_task("100", "2")
-        assert "Task closed: Robust Close" in result
+        data = json.loads(result)
+        assert "Task closed: Robust Close" in data["message"]
 
 @pytest.mark.asyncio
 async def test_bug_002_handle_204_no_content():
@@ -35,8 +37,10 @@ async def test_bug_003_tag_robustness_dict_format(stateful_client):
             t["tags"] = {"urgent": "metadata"} # Dict instead of list
             
     result = await archive_task("100", str(task_id))
-    assert "successfully archived" in result
-    assert "updated 1 items" in result
+    data = json.loads(result)
+    assert data["success"] is True
+    assert "successfully archived" in data["message"]
+    assert "updated 1 items" in data["message"]
     task = next(t for t in stateful_client.tasks if t["id"] == task_id)
     assert ARCHIVE_TAG in task["tags"]
     assert "urgent" in task["tags"]
@@ -65,8 +69,11 @@ async def test_bug_005_search_scope_includes_tags(stateful_client):
     """BUG-005: Search Scope Includes Tags."""
     await stateful_client.update_task(100, 2, tags="urgent")
     result = await search_tasks(query="urgent")
-    assert "Setup API" in result
-    assert "Task ID: 2" in result
+    data = json.loads(result)
+    assert data["success"] is True
+    # In JSON mode, breadcrumb and task_id are in the list of results
+    assert any("Setup API" in t["breadcrumb"] for t in data["data"])
+    assert any(t["task_id"] == 2 for t in data["data"])
 
 @pytest.mark.asyncio
 async def test_none_priority_regression(stateful_client):
@@ -74,7 +81,8 @@ async def test_none_priority_regression(stateful_client):
     for t in stateful_client.tasks:
         t["priority"] = None
     result = await search_tasks(query="Setup")
-    assert "Setup API" in result
+    data = json.loads(result)
+    assert any("Setup API" in t["breadcrumb"] for t in data["data"])
 
 # --- WORKFLOW REGRESSIONS ---
 
@@ -85,7 +93,9 @@ async def test_proc_006_template_verification_error(stateful_client):
     empty_list_id = "555"
     stateful_client.lists.append({"id": 555, "name": "Empty"})
     result = await apply_template(template_list_id=empty_list_id, target_list_id="100", confirmed=True)
-    assert "Error: Template list 555 is empty" in result
+    data = json.loads(result)
+    assert data["success"] is False
+    assert "Template list 555 is empty" in data["message"]
 
 # --- SAFETY & SECURITY REGRESSIONS ---
 
@@ -104,8 +114,9 @@ async def test_safe_001_recursive_logical_deletion(stateful_client):
     assert ARCHIVE_TAG in parent["tags"]
     assert ARCHIVE_TAG in child["tags"]
     
-    tree_content = await get_tree("100")
-    assert "Parent" not in tree_content
+    tree_result = await get_tree("100")
+    tree_data = json.loads(tree_result)
+    assert "Parent" not in tree_data["data"]
 
 @pytest.mark.asyncio
 async def test_safe_002_user_data_wrapping(stateful_client):
@@ -139,7 +150,8 @@ async def test_safe_004_breadcrumbs_visibility(stateful_client):
     result = await get_list_content("100")
     assert "Setup API > Configure Auth" in result
     search_res = await search_tasks("Configure")
-    assert "Setup API > Configure Auth" in search_res
+    search_data = json.loads(search_res)
+    assert any("Setup API > Configure Auth" in t["breadcrumb"] for t in search_data["data"])
 
 @pytest.mark.asyncio
 async def test_safe_005_triage_safeguards(stateful_client):
@@ -163,7 +175,8 @@ async def test_bug_006_archive_task_list_wrapped_response():
     
     with patch("src.server.get_client", return_value=mock_client):
         result = await archive_task("100", "1")
-        assert "successfully archived" in result
+        data = json.loads(result)
+        assert "successfully archived" in data["message"]
         mock_client.update_task.assert_called()
 
 @pytest.mark.asyncio
@@ -178,7 +191,8 @@ async def test_bug_006_repro_attribute_error():
         # We need to mock 'next' to return a list for target_task
         with patch("src.server.next", return_value=[{"id": 1, "content": "P", "tags": []}]):
             result = await archive_task("100", "1")
-            assert "successfully archived" in result
+            data = json.loads(result)
+            assert "successfully archived" in data["message"]
 
 @pytest.mark.asyncio
 async def test_bug_007_template_hierarchy_preservation():
@@ -208,7 +222,8 @@ async def test_bug_008_reopen_task_list_response(stateful_client):
     with patch("tests.conftest.StatefulMockClient.reopen_task", new_callable=AsyncMock) as mock_reopen:
         mock_reopen.return_value = [{"id": 2, "content": "Reopened", "status": 0}]
         result = await reopen_task("100", "2")
-        assert "Task reopened: Reopened" in result
+        data = json.loads(result)
+        assert "Task reopened: Reopened" in data["message"]
 
 @pytest.mark.asyncio
 async def test_bug_009_import_tasks_payload_hygiene():
@@ -238,7 +253,9 @@ async def test_template_root_detection_robustness(stateful_client):
     # String '0'
     stateful_client.tasks = [{"id": 11, "content": "Root", "list_id": 999, "status": 0, "parent_id": "0"}]
     res = await apply_template(template_list_id="999", target_list_id="100", confirmed=True)
-    assert "Template applied" in res
+    data = json.loads(res)
+    assert data["success"] is True
+    assert "Template applied" in data["message"]
     
     # Cyclic (should fallback to all tasks or handle gracefully)
     stateful_client.tasks = [
@@ -246,4 +263,42 @@ async def test_template_root_detection_robustness(stateful_client):
         {"id": 2, "content": "B", "list_id": 999, "status": 0, "parent_id": 1}
     ]
     res = await apply_template(template_list_id="999", target_list_id="100", confirmed=True)
-    assert "Template applied" in res or "Error" in res # Depending on desired behavior, but shouldn't crash
+    data = json.loads(res)
+    # Check if failed with specific message or succeeded
+    assert data["success"] is True or "No valid tasks found" in data["message"]
+
+@pytest.mark.asyncio
+async def test_safe_006_resource_shutdown():
+    """SAFE-006: Verify that shutdown() closes the client session."""
+    from src.server import get_client, shutdown
+    import src.server
+    import httpx
+    
+    # Initialize client
+    c = get_client()
+    c.client = AsyncMock(spec=httpx.AsyncClient)
+    
+    # Call shutdown
+    await shutdown()
+    
+    # Verify client.aclose() was called
+    c.client.aclose.assert_called_once()
+    assert src.server.client is None
+
+@pytest.mark.asyncio
+async def test_safe_id_validation():
+    """Verify that tools handle non-numeric IDs gracefully."""
+    from src.server import add_task, move_task_tool
+    
+    # Test add_task with invalid list_id
+    res = await add_task("INVALID", "test content")
+    data = json.loads(res)
+    assert data["success"] is False
+    assert "Invalid list ID" in data["message"]
+    assert "numeric" in data.get("next_steps", "").lower()
+    
+    # Test move_task_tool with invalid target_list_id
+    res = await move_task_tool("100", "200", target_list_id="TRASH", confirmed=True)
+    data = json.loads(res)
+    assert data["success"] is False
+    assert "Invalid target list ID" in data["message"]

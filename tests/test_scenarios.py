@@ -1,4 +1,5 @@
 import pytest
+import json
 from src.server import (
     list_checklists, search_list, get_tree, search_tasks,
     add_task, close_task, reopen_task, get_list_content,
@@ -12,24 +13,27 @@ from src.server import (
 async def test_phase1_discovery(stateful_client):
     """Verifies DISC-001, DISC-002, DISC-003, DISC-004."""
     
-    # DISC-001: List all
+    # DISC-001: List all (This is a resource, still returns string with wrap_data)
     res = await list_checklists()
     assert "Work (ID: 100)" in res
     assert "Spesa (ID: 200)" in res
     
-    # DISC-002: Search list
+    # DISC-002: Search list (Tool, returns JSON)
     res = await search_list(query="Work")
-    assert "Work (ID: 100)" in res
-    assert "Spesa" not in res
+    data = json.loads(res)
+    assert data["success"] is True
+    assert any(l["id"] == 100 for l in data["data"])
+    assert not any(l["id"] == 200 for l in data["data"])
     
-    # DISC-003: Tree structure
+    # DISC-003: Tree structure (Tool, returns JSON)
     res = await get_tree(list_id="200")
-    assert "Latte" in res
+    data = json.loads(res)
+    assert "Latte" in data["data"]
     
-    # DISC-004: Global task search
+    # DISC-004: Global task search (Tool, returns JSON)
     res = await search_tasks(query="API")
-    assert "Setup API" in res
-    assert "Work" in res
+    data = json.loads(res)
+    assert any("Setup API" in t["breadcrumb"] for t in data["data"])
 
 @pytest.mark.asyncio
 async def test_phase2_task_management(stateful_client):
@@ -53,7 +57,6 @@ async def test_phase2_task_management(stateful_client):
     inbox_content = await get_list_content(list_id="999")
     assert "[ ] Clean the kitchen" in inbox_content
     
-    # TASK-005: Rename Checklist
     await rename_list(list_id="100", new_name="Work - Primary")
     res = await list_checklists()
     assert "Work - Primary" in res
@@ -107,8 +110,9 @@ async def test_phase4_enrichment(stateful_client):
     
     # META-005: Metadata Visibility
     tree_res = await get_tree(list_id="100")
-    assert "!3" in tree_res
-    assert "^tomorrow" in tree_res
+    tree_data = json.loads(tree_res)
+    assert "!3" in tree_data["data"]
+    assert "^tomorrow" in tree_data["data"]
 
 @pytest.mark.asyncio
 async def test_phase5_advanced_workflows(stateful_client):
@@ -131,7 +135,9 @@ async def test_phase5_advanced_workflows(stateful_client):
 
     # PROC-006: Template Verification (Empty case)
     res = await apply_template(template_list_id="9999", target_list_id="100", confirmed=True)
-    assert "Error" in res
+    data = json.loads(res)
+    assert data["success"] is False
+    assert "empty" in data["message"]
     
     # PROC-005: Cycle Migration
     # 'Latte' (ID 1) is open in Spesa (200). Move to Work (100).

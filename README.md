@@ -1,6 +1,6 @@
 ---
-version: 1.1.2
-last_modified: 2026-01-31
+version: 1.2.0
+last_modified: 2026-02-01
 status: active
 ---
 
@@ -71,14 +71,16 @@ See the **[Client Setup Guide](docs/client_setup.md)** for a ready-to-use JSON s
 
 ## 🧩 Features (WIP)
 
-| Feature          | Status      | Description                  |
-| :--------------- | :---------- | :--------------------------- |
-| **Auth**         | ✅ Ready    | Basic Auth via API Key.      |
-| **Read Lists**   | ✅ Ready    | Fetch list content (Flat).   |
-| **Add Task**     | ✅ Ready    | Smart Parse & Tagging.       |
-| **Smart Triage** | ✅ Ready    | Hierarchy-aware movement.    |
-| **Tree View**    | ✅ Ready    | Deep exploration & Metadata. |
-| **Maintenance**  | ✅ Ready    | Recursive Logical Archiving (#deleted tag), Smart Syntax normalization (!! -> !), Robust Tag Handling. |
+| Feature                   | Status   | Description                                                                                            |
+| :------------------------ | :------- | :----------------------------------------------------------------------------------------------------- |
+| **Auth**                  | ✅ Ready | Basic Auth via API Key.                                                                                |
+| **Standardized Feedback** | ✅ Ready | All tools return structured JSON with clear failure reasons and next steps.                            |
+| **Optimization**          | ✅ Ready | Smart Fetch (notes/tags in a single call) prevents N+1 latencies.                                      |
+| **Read Lists**            | ✅ Ready | Fetch list content (Flat).                                                                             |
+| **Add Task**              | ✅ Ready | Smart Parse & Tagging.                                                                                 |
+| **Smart Triage**          | ✅ Ready | Hierarchy-aware movement.                                                                              |
+| **Tree View**             | ✅ Ready | Deep exploration & Metadata.                                                                           |
+| **Maintenance**           | ✅ Ready | Recursive Logical Archiving (#deleted tag), Smart Syntax normalization (!! -> !), Robust Tag Handling. |
 
 ## 🛡️ "Choice Architecture" & Safety
 

@@ -52,18 +52,19 @@ class CheckvistClient:
         return await self._safe_json(response)
 
     async def get_tasks(self, list_id: int):
-        """ Get all tasks in a checklist. """
-        response = await self.client.get(f"/checklists/{list_id}/tasks.json")
+        """ Get all tasks in a checklist with notes and tags. """
+        params = {"with_notes": "true", "with_tags": "true"}
+        response = await self.client.get(f"/checklists/{list_id}/tasks.json", params=params)
         response.raise_for_status()
         return await self._safe_json(response)
 
     async def create_checklist(self, name: str, public: bool = False):
         """ Create a new checklist. """
-        params = {
+        data = {
             "checklist[name]": name,
             "checklist[public]": str(public).lower()
         }
-        response = await self.client.post("/checklists.json", params=params)
+        response = await self.client.post("/checklists.json", data=data)
         response.raise_for_status()
         return await self._safe_json(response)
 
@@ -77,7 +78,7 @@ class CheckvistClient:
         if parse:
             data["parse"] = "true"
             
-        response = await self.client.post(f"/checklists/{list_id}/tasks.json", params=data)
+        response = await self.client.post(f"/checklists/{list_id}/tasks.json", data=data)
         response.raise_for_status()
         return await self._safe_json(response)
 
@@ -94,8 +95,9 @@ class CheckvistClient:
         return await self._safe_json(response)
 
     async def get_task(self, list_id: int, task_id: int):
-        """ Get a specific task. """
-        response = await self.client.get(f"/checklists/{list_id}/tasks/{task_id}.json")
+        """ Get a specific task with notes and tags. """
+        params = {"with_notes": "true", "with_tags": "true"}
+        response = await self.client.get(f"/checklists/{list_id}/tasks/{task_id}.json", params=params)
         response.raise_for_status()
         return await self._safe_json(response)
 
@@ -129,7 +131,7 @@ class CheckvistClient:
     async def move_task(self, list_id: int, task_id: int, parent_id: int):
         """ Move a task to a new parent within the same list. """
         data = {"task[parent_id]": parent_id}
-        response = await self.client.put(f"/checklists/{list_id}/tasks/{task_id}.json", params=data)
+        response = await self.client.put(f"/checklists/{list_id}/tasks/{task_id}.json", data=data)
         response.raise_for_status()
         return await self._safe_json(response)
 
@@ -183,22 +185,22 @@ class CheckvistClient:
 
     async def update_task(self, list_id: int, task_id: int, content: str = None, priority: int = None, tags: str = None, due_date: str = None):
         """ Update task details. Supports smart syntax if content is provided. """
-        params = {}
+        data = {}
         if content: 
-            params["task[content]"] = content
-            params["parse"] = "true" # Enable smart syntax parsing for content updates
-        if priority is not None: params["task[priority]"] = priority
-        if tags: params["task[tags]"] = tags
-        if due_date: params["task[due_date]"] = due_date
+            data["task[content]"] = content
+            data["parse"] = "true" # Enable smart syntax parsing for content updates
+        if priority is not None: data["task[priority]"] = priority
+        if tags: data["task[tags]"] = tags
+        if due_date: data["task[due_date]"] = due_date
             
-        response = await self.client.put(f"/checklists/{list_id}/tasks/{task_id}.json", params=params)
+        response = await self.client.put(f"/checklists/{list_id}/tasks/{task_id}.json", data=data)
         response.raise_for_status()
         return await self._safe_json(response)
 
     async def rename_checklist(self, list_id: int, name: str):
         """ Rename an existing checklist. """
         data = {"checklist[name]": name}
-        response = await self.client.put(f"/checklists/{list_id}.json", params=data)
+        response = await self.client.put(f"/checklists/{list_id}.json", data=data)
         response.raise_for_status()
         return await self._safe_json(response)
 

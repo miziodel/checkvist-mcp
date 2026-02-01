@@ -1,6 +1,6 @@
 ---
-version: 1.1.0
-last_modified: 2026-01-31
+version: 1.2.0
+last_modified: 2026-02-01
 status: active
 ---
 
@@ -61,3 +61,21 @@ Per evitare di scrivere le tue credenziali direttamente nella configurazione di 
 ## 🔍 Troubleshooting
 
 *   **ModuleNotFoundError: No module named 'src'**: Questo accade se la variabile `PYTHONPATH` non è impostata nel client. Assicurati che punti alla cartella genitore di `src`.
+
+## 🤖 Error Handling & Response Format
+
+A partire dalla versione **1.2.0**, tutti i tool restituiscono risposte strutturate in formato JSON per migliorare la precisione degli agenti AI.
+
+### Formato Risposta
+```json
+{
+  "success": true,
+  "message": "Human-readable summary",
+  "data": { ... },       // Dati opzionali se success è true
+  "action": "tool_name", // Presente in caso di errore
+  "next_steps": "Guida", // Suggerimenti per l'AI in caso di errore
+  "error_details": "..." // Dettagli tecnici (eccetto in caso di errore 401/403)
+}
+```
+
+Questo formato permette a Antigravity (o altri client) di reagire correttamente ai fallimenti invece di ricevere messaggi di testo ambigui.

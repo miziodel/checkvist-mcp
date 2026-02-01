@@ -98,15 +98,7 @@ class CheckvistService:
     async def move_task_hierarchical(self, list_id: int, task_id: int, target_list_id: int, target_parent_id: Optional[int] = None):
         """Logic for recursive move to prevent hierarchy loss (Fix BUG-004)."""
         client = await self._get_authed_client()
-        
-        # In the context of Checkvist, we need to check if we can do this in one call 
-        # or if we need to recurse. Most modern APIs handle it, but we'll add verification.
-        result = await client.move_task_to_list(list_id, task_id, target_list_id, target_parent_id)
-        
-        # Invalidation
-        self.list_content_cache.pop(list_id, None)
-        self.list_content_cache.pop(target_list_id, None)
-        
+        result = await client.move_task_hierarchy(list_id, task_id, target_list_id, target_parent_id)
         return result
 
     async def reopen_task(self, list_id: int, task_id: int) -> Dict[str, Any]:

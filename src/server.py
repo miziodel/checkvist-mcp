@@ -1,9 +1,12 @@
 import os
 import asyncio
 import re
+from typing import Any, Optional, List, Dict
 from mcp.server.fastmcp import FastMCP
 from src.client import CheckvistClient
 from src.service import CheckvistService
+from src.response import StandardResponse
+from src import __version__
 from dotenv import load_dotenv
 from pathlib import Path
 load_dotenv(dotenv_path=Path(__file__).parent.parent / '.env')
@@ -84,24 +87,45 @@ async def shutdown():
         await client.close()
         client = None
 
+def parse_id(id_val: Any, name: str) -> int:
+    """ Validate and convert ID to integer. """
+    try:
+        return int(id_val)
+    except (ValueError, TypeError):
+        raise ValueError(f"Invalid {name} ID: '{id_val}'. Must be a number.")
+
 @mcp.tool()
 async def search_list(query: str) -> str:
     """ Search for a checklist by name (fuzzy match). 
-        Returns ID and Name of matching lists.
+        Returns: JSON string with keys 'success', 'message', 'data' (list of matching lists).
     """
-    c = get_client()
-    if not c.token:
-        await c.authenticate()
-        
-    lists = await c.get_checklists()
-    matches = [l for l in lists if query.lower() in l['name'].lower()]
-    if not matches:
-
-        return f"No lists found matching '{query}'"
-        
-    rate_warning = check_rate_limit()
-    content = "\n".join([f"- {l['name']} (ID: {l['id']})" for l in matches])
-    return f"{rate_warning}\n{wrap_data(content)}"
+    try:
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
+            
+        lists = await c.get_checklists()
+        matches = [l for l in lists if query.lower() in l['name'].lower()]
+        if not matches:
+            return StandardResponse.error(
+                message=f"No lists found matching '{query}'",
+                action="search_list",
+                next_steps="Try a different query or list all checklists."
+            )
+            
+        rate_warning = check_rate_limit()
+        formatted_matches = [{"name": l['name'], "id": l['id']} for l in matches]
+        return StandardResponse.success(
+            message=f"Found {len(matches)} matching lists.{rate_warning}",
+            data=formatted_matches
+        )
+    except Exception as e:
+        return StandardResponse.error(
+            message="Failed to search lists",
+            action="search_list",
+            next_steps="Verify API connection and credentials.",
+            error_details=str(e)
+        )
 
 
 @mcp.resource("checkvist://lists")
@@ -120,10 +144,11 @@ async def get_list_content(list_id: str) -> str:
         Use this for quick reference. For deep exploration of hierarchies, use get_tree tool.
     """
 
+    l_id = parse_id(list_id, "list")
     c = get_client()
     if not c.token:
         await c.authenticate()
-    tasks = await c.get_tasks(int(list_id))
+    tasks = await c.get_tasks(l_id)
     # Filter out logically deleted tasks
     visible_tasks = [t for t in tasks if ARCHIVE_TAG not in t.get('tags', [])]
     
@@ -150,102 +175,142 @@ async def add_task(list_id: str, content: str, parent_id: str = None) -> str:
     - [Label](/cvt/ID): Internal Checkvist link to a task.
     - [Label](/checklists/ID): Internal Checkvist link to a checklist.
     
-    If content has multiple lines, it will be automatically imported as a hierarchy.
+    Returns: JSON string with keys 'success', 'message', 'data' (added task(s) info).
+    """
+    try:
+        l_id = parse_id(list_id, "list")
+        p_id = parse_id(parent_id, "parent") if parent_id else None
+        
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
+        
+        processed_content = re.sub(r'!!+', '!', content)
+        has_symbols = any(char in processed_content for char in ['!', '@', '#', '^', '/', '['])
+        
+        if has_symbols and "\n" not in processed_content.strip():
+            tasks = await c.import_tasks(l_id, processed_content, p_id)
+            if tasks:
+                return StandardResponse.success(
+                    message=f"Task added with smart syntax: {tasks[0].get('content', 'Unknown')}",
+                    data={"id": tasks[0]['id'], "content": tasks[0].get('content')}
+                )
+            return StandardResponse.success(message="Task added with smart syntax.")
+        elif has_symbols:
+            tasks = await c.import_tasks(l_id, processed_content, p_id)
+            return StandardResponse.success(
+                message=f"Imported {len(tasks)} items with smart syntax.",
+                data=[{"id": t['id'], "content": t.get('content')} for t in tasks]
+            )
+            
+        task = await c.add_task(l_id, processed_content, p_id)
+        return StandardResponse.success(
+            message=f"Task added: {task['content']}",
+            data={"id": task['id'], "content": task['content']}
+        )
+    except ValueError as e:
+        return StandardResponse.error(str(e), "add_task", "Ensure list_id and parent_id are numeric.")
+    except Exception as e:
+        return StandardResponse.error(
+            message="Failed to add task",
+            action="add_task",
+            next_steps="Verify list_id and parent_id (if provided).",
+            error_details=str(e)
+        )
+
+
+@mcp.tool()
+async def close_task(list_id: str, task_id: str) -> str:
+    """ Close a task. 
+        Returns: JSON string with keys 'success', 'message'.
+    """
+    try:
+        l_id = parse_id(list_id, "list")
+        t_id = parse_id(task_id, "task")
+        
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
+        
+        response = await c.close_task(l_id, t_id)
+        
+        if isinstance(response, list) and len(response) > 0:
+            task = response[0]
+        else:
+            task = response
+            
+        return StandardResponse.success(message=f"Task closed: {task.get('content', 'Unknown content')}")
+    except ValueError as e:
+        return StandardResponse.error(str(e), "close_task", "Ensure IDs are numeric.")
+    except Exception as e:
+        return StandardResponse.error(
+            message="Failed to close task",
+            action=f"close_task(list_id={list_id}, task_id={task_id})",
+            next_steps="Ensure the task exists and is not already closed.",
+            error_details=str(e)
+        )
+
+@mcp.tool()
+async def create_list(name: str, public: bool = False) -> str:
+    """ Create a new checklist. 
+        Returns: JSON string with keys 'success', 'message', 'data' (created list info).
     """
     try:
         c = get_client()
         if not c.token:
             await c.authenticate()
         
-        # Routing logic: 
-        # If it looks like a single-line task with smart syntax, use add_task with parse=True
-        # to ensure tags are recognized but potentially kept in content (depending on API).
-        # Actually, Checkvist's 'parse' on add_task is the standard way to handle symbols.
-        
-        # If content has multiple lines, or we specifically want import, we'd use import_tasks.
-        # For a single task, add_task is safer for 'content' preservation.
-        
-        # Pre-process '!!+' to '!' for priority (Checkvist internal syntax)
-        processed_content = re.sub(r'!!+', '!', content)
-        
-        # Detection list: !, #, ^ (Checkvist core), @, / (additional), [ (Links)
-        has_symbols = any(char in processed_content for char in ['!', '@', '#', '^', '/', '['])
-        
-        # For single tasks with symbols, we use import_tasks instead of add_task(parse=True)
-        # because import_tasks is much more reliable at stripping parsed metadata from the content string.
-        if has_symbols and "\n" not in processed_content.strip():
-            # We use import_tasks logic even for single line if it has symbols
-            tasks = await c.import_tasks(int(list_id), processed_content, int(parent_id) if parent_id else None)
-            if tasks:
-                return f"Task added with smart syntax parsing (via import): {tasks[0].get('content', 'Unknown')} (ID: {tasks[0]['id']})"
-            return "Task added with smart syntax parsing."
-        elif has_symbols:
-            tasks = await c.import_tasks(int(list_id), processed_content, int(parent_id) if parent_id else None)
-            if tasks:
-                return f"Multiple tasks imported with smart syntax: {len(tasks)} items added."
-            return "Tasks imported."
-            
-        task = await c.add_task(int(list_id), processed_content, int(parent_id) if parent_id else None)
-        return f"Task added: {task['content']} (ID: {task['id']})"
-    except Exception as e:
-        return f"Error adding task: {str(e)}"
-
-
-@mcp.tool()
-async def close_task(list_id: str, task_id: str) -> str:
-    """ Close a task. """
-    try:
-        c = get_client()
-        if not c.token:
-            await c.authenticate()
-        
-        # Robust type coercion
-        l_id = int(list_id)
-        t_id = int(task_id)
-        
-        response = await c.close_task(l_id, t_id)
-        
-        # Handle potential list response (Bug Fix)
-        if isinstance(response, list) and len(response) > 0:
-            task = response[0]
-        else:
-            task = response
-            
-        return f"Task closed: {task.get('content', 'Unknown content')}"
-    except Exception as e:
-        return f"Error closing task: {str(e)}"
-
-@mcp.tool()
-async def create_list(name: str, public: bool = False) -> str:
-    """ Create a new checklist. """
-    try:
-        c = get_client()
-        if not c.token:
-            await c.authenticate()
-        
         checklist = await c.create_checklist(name, public)
-        return f"Checklist created: {checklist['name']} (ID: {checklist['id']})"
+        return StandardResponse.success(
+            message=f"Checklist created: {checklist['name']}",
+            data={"id": checklist['id'], "name": checklist['name']}
+        )
     except Exception as e:
-        return f"Error creating checklist: {str(e)}"
+        return StandardResponse.error(
+            message="Failed to create checklist",
+            action="create_list",
+            next_steps="Check your credentials and quota.",
+            error_details=str(e)
+        )
 
 @mcp.tool()
 async def search_tasks(query: str) -> str:
-    """ Search for tasks across all lists (Checks content and tags). """
-    s = get_service()
-    results = await s.search_tasks(query)
-    # Filter out logically deleted tasks
-    visible_results = [r for r in results if ARCHIVE_TAG not in r.get('tags', [])]
-    
-    if not visible_results:
-        return "No tasks found matching the query."
+    """ Search for tasks across all lists (Checks content and tags). 
+        Returns: JSON string with keys 'success', 'message', 'data' (list of matching tasks).
+    """
+    try:
+        s = get_service()
+        results = await s.search_tasks(query)
+        visible_results = [r for r in results if ARCHIVE_TAG not in r.get('tags', [])]
         
-    rate_warning = check_rate_limit()
-    output = []
-    for r in visible_results:
-        output.append(f"- {r['breadcrumb']} [List: {r['list_name']} (ID: {r['list_id']}), Task ID: {r['id']}]")
-        
-    joined_output = '\n'.join(output)
-    return f"{rate_warning}\n{wrap_data(joined_output)}"
+        if not visible_results:
+            return StandardResponse.error(
+                message="No tasks found matching the query.",
+                action="search_tasks",
+                next_steps="Try a broader query or check if tasks are archived."
+            )
+            
+        rate_warning = check_rate_limit()
+        formatted_results = []
+        for r in visible_results:
+            formatted_results.append({
+                "breadcrumb": r['breadcrumb'],
+                "list_id": r['list_id'],
+                "list_name": r['list_name'],
+                "task_id": r['id']
+            })
+            
+        return StandardResponse.success(
+            message=f"Found {len(visible_results)} matching tasks.{rate_warning}",
+            data=formatted_results
+        )
+    except Exception as e:
+        return StandardResponse.error(
+            message="Search failed",
+            action="search_tasks",
+            next_steps="Check if the query contains special characters that might be problematic.",
+            error_details=str(e)
+        )
 
 def _format_task_with_meta(t: dict) -> str:
     """Internal helper to format task content with metadata decorators."""
@@ -272,351 +337,496 @@ async def move_task_tool(list_id: str, task_id: str, target_list_id: str = None,
     """ Move a task within a list or to a completely different list. 
         If target_list_id is provided, it performs a cross-list move (preserving children).
         confirmed=True: Skip the safety confirmation (use only after user approval).
+        Returns: JSON string with keys 'success', 'message'.
     """
     if not confirmed:
         action = "Move" if not target_list_id else "Relocate"
         target = f"list {target_list_id}" if target_list_id else "same list"
         return f"> [!IMPORTANT]\n> Please confirm: {action} task {task_id} to {target}?\n> Call this tool again with `confirmed=True` to proceed."
 
-    c = get_client()
-    s = get_service()
+    try:
+        l_id = parse_id(list_id, "source list")
+        t_id = parse_id(task_id, "task")
+        
+        c = get_client()
 
-    if target_list_id and int(target_list_id) != int(list_id):
-        # Use hierarchical move to fix BUG-004
-        await c.move_task_hierarchy(int(list_id), int(task_id), int(target_list_id), int(target_parent_id) if target_parent_id else None)
-        # Verify (Relies on service/client to not crash, if it does, except block handles it)
-        return f"Moved task {task_id} (and its children) from list {list_id} to list {target_list_id}."
-    else:
-        # Same list move (reparenting)
-        updated_task = await c.move_task(int(list_id), int(task_id), int(target_parent_id) if target_parent_id else None)
-        return f"Moved task {task_id} under new parent {target_parent_id if target_parent_id else 'root'} in list {list_id}."
+        if target_list_id:
+            tl_id = parse_id(target_list_id, "target list")
+            if tl_id != l_id:
+                tp_id = parse_id(target_parent_id, "target parent") if target_parent_id else None
+                await c.move_task_hierarchy(l_id, t_id, tl_id, tp_id)
+                return StandardResponse.success(message=f"Moved task {task_id} (and its children) from list {list_id} to list {target_list_id}.")
+
+        # If we are here, it's either same list move or fallback to move_task
+        tp_id = parse_id(target_parent_id, "target parent") if target_parent_id else None
+        await c.move_task(l_id, t_id, tp_id)
+        return StandardResponse.success(message=f"Moved task {task_id} under new parent {target_parent_id if target_parent_id else 'root'} in list {list_id}.")
+    except ValueError as e:
+        return StandardResponse.error(str(e), "move_task_tool", "Ensure all IDs are numeric.")
+    except Exception as e:
+        return StandardResponse.error(
+            message="Failed to move task",
+            action="move_task_tool",
+            next_steps="Verify IDs and your access permissions for the target list.",
+            error_details=str(e)
+        )
 
 @mcp.tool()
 async def import_tasks(list_id: str, content: str, parent_id: str = None) -> str:
     """
     Bulk import tasks using Checkvist's hierarchical text format.
-    Each line is a task. Indentation with 2 spaces creates subtasks.
-    
-    Smart Syntax parsing is enabled by default for all lines (!priority, #tag, ^due).
+    Returns: JSON string with keys 'success', 'message'.
     """
-    c = get_client()
-    if not c.token:
-        await c.authenticate()
-    # Pre-process '!!+' to '!' for priority normalization
-    processed_content = re.sub(r'!!+', '!', content)
-    
-    tasks = await c.import_tasks(int(list_id), processed_content, int(parent_id) if parent_id else None)
-    return f"Tasks imported successfully. New items count: {len(tasks)}"
+    try:
+        l_id = parse_id(list_id, "list")
+        p_id = parse_id(parent_id, "parent") if parent_id else None
+        
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
+        processed_content = re.sub(r'!!+', '!', content)
+        tasks = await c.import_tasks(l_id, processed_content, p_id)
+        return StandardResponse.success(message=f"Tasks imported successfully. New items count: {len(tasks)}")
+    except ValueError as e:
+        return StandardResponse.error(str(e), "import_tasks", "Ensure IDs are numeric.")
+    except Exception as e:
+        return StandardResponse.error(
+            message="Import failed",
+            action="import_tasks",
+            next_steps="Check the format of your import content. Ensure 2 spaces indentation for subtasks.",
+            error_details=str(e)
+        )
 
 @mcp.tool()
 async def add_note(list_id: str, task_id: str, note: str) -> str:
     """ 
     Add a note (comment) to a specific task. 
-    Use this to attach context, documentation, or discussion to an existing item.
+    Returns: JSON string with keys 'success', 'message'.
     """
     try:
+        l_id = parse_id(list_id, "list")
+        t_id = parse_id(task_id, "task")
+        
         c = get_client()
         if not c.token:
             await c.authenticate()
-        await c.add_note(int(list_id), int(task_id), note)
-        return f"Note added to task {task_id} in list {list_id}."
+        await c.add_note(l_id, t_id, note)
+        return StandardResponse.success(message=f"Note added to task {t_id} in list {l_id}.")
+    except ValueError as e:
+        return StandardResponse.error(str(e), "add_note", "Ensure IDs are numeric.")
     except Exception as e:
-        return f"Error adding note to task {task_id}: {str(e)}"
+        return StandardResponse.error(
+            message="Failed to add note",
+            action=f"add_note(task_id={task_id})",
+            next_steps="Verify the task ID and your access rights.",
+            error_details=str(e)
+        )
 
 @mcp.tool()
 async def update_task(list_id: str, task_id: str, content: str = None, priority: int = None, due: str = None, tags: str = None) -> str:
     """ 
     Update a task's properties. 
-    Can update content, priority (1-6), due date (natural language), and tags (comma-separated).
+    Returns: JSON string with keys 'success', 'message', 'data' (updated task).
     """
     try:
+        l_id = parse_id(list_id, "list")
+        t_id = parse_id(task_id, "task")
+        
         c = get_client()
         if not c.token:
             await c.authenticate()
         
-        # Mapping 'due' from tool param to 'due_date' for client
         updated = await c.update_task(
-            int(list_id), 
-            int(task_id), 
+            l_id, 
+            t_id, 
             content=content, 
             priority=priority, 
             due_date=due, 
             tags=tags
         )
-        return f"Task {task_id} updated: {_format_task_with_meta(updated)}"
+        return StandardResponse.success(
+            message=f"Task {t_id} updated.",
+            data={"id": updated['id'], "summary": _format_task_with_meta(updated)}
+        )
+    except ValueError as e:
+        return StandardResponse.error(str(e), "update_task", "Ensure IDs are numeric.")
     except Exception as e:
-        return f"Error updating task {task_id}: {str(e)}"
+        return StandardResponse.error(
+            message="Failed to update task",
+            action=f"update_task(task_id={task_id})",
+            next_steps="Check if the task exists and the property values are valid.",
+            error_details=str(e)
+        )
 
 @mcp.tool()
 async def rename_list(list_id: str, new_name: str) -> str:
-    """ Rename an existing checklist. """
+    """ Rename an existing checklist. 
+        Returns: JSON string with keys 'success', 'message'.
+    """
     try:
+        l_id = parse_id(list_id, "list")
+        
         c = get_client()
         if not c.token:
             await c.authenticate()
-        await c.rename_checklist(int(list_id), new_name)
-        return f"List {list_id} successfully renamed to '{new_name}'."
+        await c.rename_checklist(l_id, new_name)
+        return StandardResponse.success(message=f"List {l_id} successfully renamed to '{new_name}'.")
+    except ValueError as e:
+        return StandardResponse.error(str(e), "rename_list", "Ensure list ID is numeric.")
     except Exception as e:
-        return f"Error renaming list: {str(e)}"
+        return StandardResponse.error(
+            message="Failed to rename list",
+            action=f"rename_list(list_id={list_id})",
+            next_steps="Check if the list exists and you have rename permissions.",
+            error_details=str(e)
+        )
 
 @mcp.tool()
 async def reopen_task(list_id: str, task_id: str) -> str:
-    """ Reopen a closed task. """
+    """ Reopen a closed task. 
+        Returns: JSON string with keys 'success', 'message', 'data' (reopened task).
+    """
     try:
+        l_id = parse_id(list_id, "list")
+        t_id = parse_id(task_id, "task")
+        
         s = get_service()
-        task = await s.reopen_task(int(list_id), int(task_id))
-        return f"Task reopened: {task.get('content', 'Unknown')} (ID: {task['id']})"
+        task = await s.reopen_task(l_id, t_id)
+        return StandardResponse.success(
+            message=f"Task reopened: {task.get('content', 'Unknown')}",
+            data={"id": task['id'], "content": task.get('content')}
+        )
+    except ValueError as e:
+        return StandardResponse.error(str(e), "reopen_task", "IDs must be numeric.")
     except Exception as e:
-        return f"Error reopening task: {str(e)}"
+        return StandardResponse.error(
+            message="Failed to reopen task",
+            action=f"reopen_task(task_id={task_id})",
+            next_steps="Verify the task is currently closed.",
+            error_details=str(e)
+        )
 
 @mcp.tool()
 async def apply_template(template_list_id: str, target_list_id: str, confirmed: bool = False) -> str:
     """ Clone all tasks from a template list into a target list.
         confirmed=True: Skip the safety confirmation (use only after user approval).
+        Returns: JSON string with keys 'success', 'message'.
     """
     if not confirmed:
         return f"> [!IMPORTANT]\n> Please confirm: Apply template from {template_list_id} to {target_list_id}?\n> This will create multiple new tasks.\n> Call this tool again with `confirmed=True` to proceed."
 
-    c = get_client()
-
-    if not c.token:
-        await c.authenticate()
-    
-    template_tasks = await c.get_tasks(int(template_list_id))
-    if not template_tasks:
-        return f"Error: Template list {template_list_id} is empty or not found."
+    try:
+        tmp_id = parse_id(template_list_id, "template list")
+        tgt_id = parse_id(target_list_id, "target list")
         
-    # Build hierarchy (Robust root detection for moved tasks BUG-003/006)
-    task_map = {t['id']: {'data': t, 'children': []} for t in template_tasks}
-    roots = []
-    for t in template_tasks:
-        pid_raw = t.get('parent_id')
-        # Normalize pid to int safely
-        try:
-            pid = int(pid_raw) if pid_raw is not None and str(pid_raw).strip() != "" else 0
-        except (ValueError, TypeError):
-            pid = 0
-            
-        is_root = pid == 0
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
         
-        if not is_root and pid in task_map:
-            task_map[pid]['children'].append(task_map[t['id']])
-        else:
-            roots.append(task_map[t['id']])
-
-    # Convert hierarchy to indented text with Smart Syntax reconstruction
-    def build_lines(nodes, level=0):
-        txt_lines = []
-        for node in nodes:
-            task = node['data']
+        template_tasks = await c.get_tasks(tmp_id)
+        if not template_tasks:
+             return StandardResponse.error(
+                 message=f"Template list {tmp_id} is empty or not found.",
+                 action="apply_template",
+                next_steps="Ensure the template list exists and contains tasks."
+             )
             
-            # Filter archived tasks (BUG-006 related)
-            tags = task.get('tags', [])
-            if ARCHIVE_TAG in tags:
-                continue
+        # Build hierarchy
+        task_map = {t['id']: {'data': t, 'children': []} for t in template_tasks}
+        roots = []
+        for t in template_tasks:
+            pid_raw = t.get('parent_id')
+            try:
+                pid = int(pid_raw) if pid_raw is not None and str(pid_raw).strip() != "" else 0
+            except (ValueError, TypeError):
+                pid = 0
+            is_root = pid == 0
+            if not is_root and pid in task_map:
+                task_map[pid]['children'].append(task_map[t['id']])
+            else:
+                roots.append(task_map[t['id']])
 
-            # Reconstruct content with Smart Syntax (Metadata Preservation)
-            content = task.get('content', '')
-            
-            # Priority (!1, !2, ...) - Only if not already in content
-            priority = task.get('priority')
-            if priority and f"!{priority}" not in content:
-                content += f" !{priority}"
-            
-            # Tags (#tag) - Only if not ARCHIVE_TAG and not already in content
-            for tag in tags:
-                if tag != ARCHIVE_TAG and f"#{tag}" not in content:
-                    content += f" #{tag}"
-            
-            # Due Date (^date) - natural language or YYYY-MM-DD
-            due = task.get('due_date')
-            if due and f"^{due}" not in content:
-                content += f" ^{due}"
+        def build_lines(nodes, level=0):
+            txt_lines = []
+            for node in nodes:
+                task = node['data']
+                if ARCHIVE_TAG in task.get('tags', []):
+                    continue
+                content = task.get('content', '')
+                priority = task.get('priority')
+                if priority and f"!{priority}" not in content:
+                    content += f" !{priority}"
+                tags = task.get('tags', [])
+                if isinstance(tags, dict): tags = list(tags.keys())
+                for tag in tags:
+                    if tag != ARCHIVE_TAG and f"#{tag}" not in content:
+                        content += f" #{tag}"
+                due = task.get('due_date')
+                if due and f"^{due}" not in content:
+                    content += f" ^{due}"
+                txt_lines.append("  " * level + content)
+                txt_lines.extend(build_lines(node['children'], level + 1))
+            return txt_lines
 
-            txt_lines.append("  " * level + content)
-            txt_lines.extend(build_lines(node['children'], level + 1))
-        return txt_lines
-
-    import_text = "\n".join(build_lines(roots))
-    if not import_text.strip():
-         return f"Error: No tasks found in template list {template_list_id}."
-         
-    await c.import_tasks(int(target_list_id), import_text)
-    return f"Template applied to list {target_list_id}. Imported hierarchical structure from template."
+        import_text = "\n".join(build_lines(roots))
+        if not import_text.strip():
+             return StandardResponse.error(
+                 message="No valid tasks found in template to import.",
+                 action="apply_template",
+                 next_steps="Check if all tasks in the template are archived."
+             )
+             
+        await c.import_tasks(tgt_id, import_text)
+        return StandardResponse.success(message=f"Template applied successfully to list {tgt_id}.")
+    except ValueError as e:
+        return StandardResponse.error(str(e), "apply_template", "Ensure IDs are numeric.")
+    except Exception as e:
+        return StandardResponse.error(
+            message="Failed to apply template",
+            action="apply_template",
+            next_steps="Check IDs and connectivity.",
+            error_details=str(e)
+        )
 
 @mcp.tool()
 async def get_review_data(timeframe: str = "weekly") -> str:
-    """ Get statistics about completed vs open tasks to help with periodic review. """
-    c = get_client()
-    if not c.token:
-        await c.authenticate()
-    
-    checklists = await c.get_checklists()
-    report = [f"Review Report ({timeframe}):"]
-    
-    for l in checklists[:5]: # Limit to first 5 for speed
-        tasks = await c.get_tasks(l['id'])
-        done = len([t for t in tasks if t.get('status', 0) == 1])
-        open_ts = len([t for t in tasks if t.get('status', 0) == 0])
-        report.append(f"- {l['name']}: {done} completed, {open_ts} open")
+    """ Get statistics about completed vs open tasks to help with periodic review. 
+        Returns: JSON string with keys 'success', 'message', 'data' (statistics list).
+    """
+    try:
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
         
-    rate_warning = check_rate_limit()
-    joined_report = "\n".join(report)
-    return f"{rate_warning}\n{wrap_data(joined_report)}"
+        checklists = await c.get_checklists()
+        stats = []
+        for l in checklists[:5]: # Limit to first 5 for speed
+            tasks = await c.get_tasks(l['id'])
+            done = len([t for t in tasks if t.get('status', 0) == 1])
+            open_ts = len([t for t in tasks if t.get('status', 0) == 0])
+            stats.append({"list": l['name'], "completed": done, "open": open_ts})
+            
+        rate_warning = check_rate_limit()
+        return StandardResponse.success(
+            message=f"Review Report ({timeframe}){rate_warning}",
+            data=stats
+        )
+    except Exception as e:
+        return StandardResponse.error(
+            message="Failed to gather review data",
+            action="get_review_data",
+            next_steps="Check network connection.",
+            error_details=str(e)
+        )
 
 
 @mcp.tool()
 async def migrate_incomplete_tasks(source_list_id: str, target_list_id: str, confirmed: bool = False) -> str:
     """ Move all incomplete tasks from one list to another (e.g., closing a cycle/sprint).
         confirmed=True: Skip the safety confirmation (use only after user approval).
+        Returns: JSON string with keys 'success', 'message'.
     """
     if not confirmed:
         return f"> [!IMPORTANT]\n> Please confirm: Migrate ALL incomplete tasks from {source_list_id} to {target_list_id}?\n> Call this tool again with `confirmed=True` to proceed."
 
-    c = get_client()
-
-    if not c.token:
-        await c.authenticate()
-    
-    tasks = await c.get_tasks(int(source_list_id))
-    incomplete = [t for t in tasks if t.get('status', 0) == 0]
-    
-    for t in incomplete:
-        await c.move_task_hierarchy(int(source_list_id), t['id'], int(target_list_id))
+    try:
+        src_id = parse_id(source_list_id, "source list")
+        tgt_id = parse_id(target_list_id, "target list")
         
-    return f"Successfully migrated {len(incomplete)} incomplete tasks to list {target_list_id}."
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
+        
+        tasks = await c.get_tasks(src_id)
+        incomplete = [t for t in tasks if t.get('status', 0) == 0]
+        
+        for t in incomplete:
+            await c.move_task_hierarchy(src_id, t['id'], tgt_id)
+            
+        return StandardResponse.success(message=f"Successfully migrated {len(incomplete)} incomplete tasks to list {target_list_id}.")
+    except ValueError as e:
+        return StandardResponse.error(str(e), "migrate_incomplete_tasks", "Ensure list IDs are numeric.")
+    except Exception as e:
+        return StandardResponse.error(
+            message="Migration failed",
+            action="migrate_incomplete_tasks",
+            next_steps="Verify list IDs and permissions.",
+            error_details=str(e)
+        )
 
 @mcp.tool()
 async def triage_inbox(inbox_name: str = "Inbox") -> str:
     """ Fetch tasks from the 'Inbox' list for triage. 
-        Returns tasks with their IDs and current list IDs.
+        Returns: JSON string with keys 'success', 'message', 'data' (triage tasks list).
     """
-    c = get_client()
-    if not c.token:
-        await c.authenticate()
+    try:
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
+            
+        checklists = await c.get_checklists()
+        inbox = next((l for l in checklists if inbox_name.lower() in l['name'].lower()), None)
         
-    checklists = await c.get_checklists()
-    inbox = next((l for l in checklists if inbox_name.lower() in l['name'].lower()), None)
-    
-    if not inbox:
-        lists_available = ", ".join([l['name'] for l in checklists])
-        return f"List named '{inbox_name}' not found. Available: {lists_available}"
+        if not inbox:
+            return StandardResponse.error(
+                message=f"List named '{inbox_name}' not found.",
+                action="triage_inbox",
+                next_steps=f"Available lists: {', '.join([l['name'] for l in checklists])}"
+            )
+            
+        tasks = await c.get_tasks(inbox['id'])
+        open_tasks = [t for t in tasks if t.get('status', 0) == 0 and ARCHIVE_TAG not in t.get('tags', [])]
         
-    tasks = await c.get_tasks(inbox['id'])
-    # Filter only open and non-deleted tasks
-    open_tasks = [t for t in tasks if t.get('status', 0) == 0 and ARCHIVE_TAG not in t.get('tags', [])]
-    
-    if not open_tasks:
-        return f"Inbox ({inbox['name']}) is empty! Good job."
-        
-    # Build map for breadcrumbs
-    task_map = {t['id']: {'data': t} for t in tasks}
-    
-    rate_warning = check_rate_limit()
-    content = f"Tasks in {inbox['name']} (ID: {inbox['id']}):\n" + \
-           "\n".join([f"- {build_breadcrumb(t['id'], task_map)} (ID: {t['id']})" for t in open_tasks])
-    return f"{rate_warning}\n{wrap_data(content)}"
+        if not open_tasks:
+            return StandardResponse.success(message=f"Inbox ({inbox['name']}) is empty! Good job.")
+            
+        task_map = {t['id']: {'data': t} for t in tasks}
+        rate_warning = check_rate_limit()
+        formatted_tasks = []
+        for t in open_tasks:
+             formatted_tasks.append({
+                 "id": t['id'],
+                 "content": t['content'],
+                 "breadcrumb": build_breadcrumb(t['id'], task_map)
+             })
+
+        return StandardResponse.success(
+            message=f"Found {len(open_tasks)} tasks for triage in {inbox['name']}.{rate_warning}",
+            data=formatted_tasks
+        )
+    except Exception as e:
+        return StandardResponse.error(
+            message="Triage failed",
+            action="triage_inbox",
+            next_steps="Check connectivity.",
+            error_details=str(e)
+        )
 
 
 
 @mcp.tool()
 async def get_tree(list_id: str, depth: int = 1) -> str:
     """ Get the task tree for a list, respecting a depth limit to save tokens.
-        depth=1: Top level tasks only (default).
-        depth=2: Top level + direct children.
-        Increasing depth consumes more context/tokens. Use only as much as needed.
+        Returns: JSON string with keys 'success', 'message', 'data' (tree structure string).
     """
-    s = get_service()
-    roots = await s.get_tree(int(list_id), depth)
+    try:
+        l_id = parse_id(list_id, "list")
+        
+        s = get_service()
+        roots = await s.get_tree(l_id, int(depth))
+                
+        def print_node(node, current_depth):
+            if current_depth > depth:
+                return ""
             
-    # Traverse with depth limit
-    def print_node(node, current_depth):
-        if current_depth > depth:
-            return ""
-        
-        task = node['data']
-        status = 'x' if task.get('status', 0) == 1 else ' '
-        indent = "  " * (current_depth - 1)
-        
-        # Metadata decorators
-        meta = []
-        priority = task.get('priority')
-        if priority is not None and int(priority) > 0:
-            meta.append(f"!{priority}")
-        if task.get('due_date'): meta.append(f"^{task['due_date']}")
-        
-        tags = task.get('tags', [])
-        tag_list = tags if isinstance(tags, list) else list(tags.keys()) if isinstance(tags, dict) else []
-        for tag in tag_list:
-            if tag != ARCHIVE_TAG: meta.append(f"#{tag}")
+            task = node['data']
+            status = 'x' if task.get('status', 0) == 1 else ' '
+            indent = "  " * (current_depth - 1)
             
-        meta_str = " " + " ".join(meta) if meta else ""
-        line = f"{indent}- [{status}] {task['content']}{meta_str} (ID: {task['id']})"
-        
-        children_output = ""
-        for child in node['children']:
-            children_output += "\n" + print_node(child, current_depth + 1)
+            meta = []
+            priority = task.get('priority')
+            if priority is not None and int(priority) > 0:
+                meta.append(f"!{priority}")
+            if task.get('due_date'): meta.append(f"^{task['due_date']}")
             
-        return line + children_output
+            tags = task.get('tags', [])
+            tag_list = tags if isinstance(tags, list) else list(tags.keys()) if isinstance(tags, dict) else []
+            for tag in tag_list:
+                if tag != ARCHIVE_TAG: meta.append(f"#{tag}")
+                
+            meta_str = " " + " ".join(meta) if meta else ""
+            line = f"{indent}- [{status}] {task['content']}{meta_str} (ID: {task['id']})"
+            
+            children_output = ""
+            for child in node['children']:
+                res = print_node(child, current_depth + 1)
+                if res: children_output += "\n" + res
+                
+            return line + children_output
 
-    output = []
-    for root in roots:
-        res = print_node(root, 1)
-        if res.strip():
-            output.append(res)
-            
-    rate_warning = check_rate_limit()
-    content = "\n".join(output)
-    return f"{rate_warning}\n{wrap_data(content)}"
+        output = []
+        for root in roots:
+            res = print_node(root, 1)
+            if res.strip():
+                output.append(res)
+                
+        rate_warning = check_rate_limit()
+        content = "\n".join(output)
+        return StandardResponse.success(
+            message=f"Fetched tree for list {list_id} (depth={depth}).{rate_warning}",
+            data=content
+        )
+    except ValueError as e:
+        return StandardResponse.error(str(e), "get_tree", "Ensure list ID is numeric.")
+    except Exception as e:
+        return StandardResponse.error(
+            message="Failed to fetch tree",
+            action=f"get_tree(list_id={list_id})",
+            next_steps="Check if the list ID is valid and accessible.",
+            error_details=str(e)
+        )
 
 
 @mcp.tool()
 async def resurface_ideas() -> str:
-    """ Randomly pick open tasks from old lists to resurface ideas. """
-    import random
-    c = get_client()
-    if not c.token:
-        await c.authenticate()
-        
-    checklists = await c.get_checklists()
-    if not checklists:
-        return "No lists found."
-        
-    # Pick 3 random lists to check
-    random.shuffle(checklists)
-    candidates = []
-    
-    for l in checklists[:3]:
-        tasks = await c.get_tasks(l['id'])
-        # Open tasks only
-        open_tasks = [t for t in tasks if t.get('status', 0) == 0]
-        if open_tasks:
-            # Build map for breadcrumbs
-            task_map = {t['id']: {'data': t} for t in tasks}
-            t = random.choice(open_tasks)
-            breadcrumb = build_breadcrumb(t['id'], task_map)
-            candidates.append(f"- {breadcrumb} (List: {l['name']}, ID: {t['id']})")
-
+    """ Randomly pick open tasks from old lists to resurface ideas. 
+        Returns: JSON string with keys 'success', 'message', 'data' (list of ideas).
+    """
+    try:
+        import random
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
             
-    if not candidates:
-        return "No ideas found to resurface."
+        checklists = await c.get_checklists()
+        if not checklists:
+            return StandardResponse.error(message="No lists found.", action="resurface_ideas", next_steps="Create some lists first!")
+            
+        random.shuffle(checklists)
+        candidates = []
         
-    rate_warning = check_rate_limit()
-    content = "Here are some forgotten tasks/ideas:\n" + "\n".join(candidates)
-    return f"{rate_warning}\n{wrap_data(content)}"
+        for l in checklists[:3]:
+            tasks = await c.get_tasks(l['id'])
+            open_tasks = [t for t in tasks if t.get('status', 0) == 0]
+            if open_tasks:
+                task_map = {t['id']: {'data': t} for t in tasks}
+                t = random.choice(open_tasks)
+                breadcrumb = build_breadcrumb(t['id'], task_map)
+                candidates.append({"breadcrumb": breadcrumb, "list": l['name'], "id": t['id']})
+                
+        if not candidates:
+            return StandardResponse.success(message="No open tasks found to resurface.")
+            
+        rate_warning = check_rate_limit()
+        return StandardResponse.success(
+            message=f"Resurfaced {len(candidates)} ideas.{rate_warning}",
+            data=candidates
+        )
+    except Exception as e:
+        return StandardResponse.error(message="Failed to resurface ideas", action="resurface_ideas", next_steps="Try again later.", error_details=str(e))
 
 @mcp.tool()
 async def archive_task(list_id: str, task_id: str) -> str:
     """ 
     Logically delete a task (and all its subtasks) by adding the '#deleted' tag.
-    Note: Archived tasks are filtered out from tree views and search results.
+    Returns: JSON string with keys 'success', 'message'.
     """
     try:
+        l_id = parse_id(list_id, "list")
+        t_id = parse_id(task_id, "task")
+        
         s = get_service()
-        result = await s.archive_task(int(list_id), int(task_id))
-        return result
+        result = await s.archive_task(l_id, t_id)
+        return StandardResponse.success(message=result)
+    except ValueError as e:
+        return StandardResponse.error(str(e), "archive_task", "IDs must be numeric.")
     except Exception as e:
-        return f"Error archiving task: {str(e)}"
+        return StandardResponse.error(
+            message="Failed to archive task",
+            action=f"archive_task(task_id={task_id})",
+            next_steps="Check if the task exists.",
+            error_details=str(e)
+        )
 
 
 

@@ -1,7 +1,8 @@
 import pytest
+import json
 from unittest.mock import AsyncMock, patch, MagicMock
 from src.server import (
-    get_client, add_task, import_tasks,
+    get_client, add_task, import_tasks, search_list,
     add_note, update_task, triage_inbox, move_task_tool,
     close_task, create_list, search_tasks, get_tree, resurface_ideas,
     get_list_content, list_checklists
@@ -60,14 +61,18 @@ async def test_get_list_content_tool(mock_client):
 async def test_add_task_tool(mock_client):
     result = await add_task(list_id="100", content="Refactor Tests")
     mock_client.add_task.assert_called_with(100, "Refactor Tests", None)
-    assert "Task added" in result
+    data = json.loads(result)
+    assert data["success"] is True
+    assert "Task added" in data["message"]
 
 @pytest.mark.asyncio
 async def test_add_task_smart_syntax_routing(mock_client):
     # Single line with #tag should use import_tasks
     mock_client.import_tasks = AsyncMock(return_value=[{"id": 12, "content": "Task"}])
     result = await add_task("100", "Task #tag")
-    assert "via import" in result
+    data = json.loads(result)
+    assert data["success"] is True
+    assert "with smart syntax" in data["message"]
     mock_client.import_tasks.assert_called_with(100, "Task #tag", None)
 
 @pytest.mark.asyncio
@@ -88,59 +93,76 @@ async def test_add_task_smart_syntax_expanded_routing(mock_client):
 async def test_import_tasks_tool(mock_client):
     result = await import_tasks(list_id="100", content="Task A\n  Subtask A1")
     mock_client.import_tasks.assert_called_with(100, "Task A\n  Subtask A1", None)
-    assert "Tasks imported" in result
+    data = json.loads(result)
+    assert data["success"] is True
+    assert "Tasks imported" in data["message"]
 
 @pytest.mark.asyncio
 async def test_add_note_tool(mock_client):
     result = await add_note(list_id="100", task_id="101", note="Important note")
     mock_client.add_note.assert_called_with(100, 101, "Important note")
-    assert "Note added" in result
+    data = json.loads(result)
+    assert data["success"] is True
+    assert "Note added" in data["message"]
 
 @pytest.mark.asyncio
 async def test_add_note_robustness(mock_client):
     mock_client.add_note.side_effect = Exception("403 Forbidden")
     result = await add_note("100", "101", "New note")
-    assert "Error adding note" in result
-    assert "403 Forbidden" in result
+    data = json.loads(result)
+    assert data["success"] is False
+    assert "Failed to add note" in data["message"]
+    assert "403 Forbidden" in data["error_details"]
 
 @pytest.mark.asyncio
 async def test_update_task_tool(mock_client):
     result = await update_task(list_id="100", task_id="101", priority=1)
     mock_client.update_task.assert_called_with(100, 101, content=None, priority=1, due_date=None, tags=None)
-    assert "Task 101 updated" in result
+    data = json.loads(result)
+    assert data["success"] is True
+    assert "Task 101 updated" in data["message"]
 
 # --- TRIAGE & SEARCH TESTS ---
 
 @pytest.mark.asyncio
 async def test_triage_inbox_tool(mock_client):
     result = await triage_inbox(inbox_name="Inbox")
-    assert "Auth Module" in result
-    assert "999" in result
+    data = json.loads(result)
+    assert data["success"] is True
+    assert any(t["content"] == "Auth Module" for t in data["data"])
+    assert any(t["breadcrumb"] == "Auth Module" for t in data["data"])
 
 @pytest.mark.asyncio
 async def test_search_tasks_tool(mock_client):
     result = await search_tasks(query="Auth")
-    assert "Auth Module" in result
-    assert "Task ID: 101" in result
+    data = json.loads(result)
+    assert data["success"] is True
+    assert any("Auth Module" in t["breadcrumb"] for t in data["data"])
+    assert any(t["task_id"] == 101 for t in data["data"])
 
 @pytest.mark.asyncio
 async def test_search_by_id_targeted(mock_client):
     result = await search_tasks(query="101")
-    assert "Auth Module" in result
-    assert "Task ID: 101" in result
-    assert "!1" in result
+    data = json.loads(result)
+    assert data["success"] is True
+    assert any(t["task_id"] == 101 for t in data["data"])
+    assert any("!1" in t["breadcrumb"] for t in data["data"])
 
 @pytest.mark.asyncio
 async def test_move_task_cross_list(mock_client):
     result = await move_task_tool(list_id="999", task_id="101", target_list_id="888", confirmed=True)
-    assert "Moved task 101" in result
+    data = json.loads(result)
+    assert data["success"] is True
+    assert "Moved task 101" in data["message"]
     mock_client.move_task_hierarchy.assert_called_with(999, 101, 888, None)
 
 @pytest.mark.asyncio
 async def test_move_task_same_list(mock_client):
     result = await move_task_tool(list_id="100", task_id="102", target_parent_id="101", confirmed=True)
     mock_client.move_task.assert_called_with(100, 102, 101)
-    assert "under new parent 101" in result
+    data = json.loads(result)
+    assert data["success"] is True
+    assert "under new parent 101" in data["message"]
 
 # --- MANAGEMENT TESTS ---
 
@@ -148,12 +170,17 @@ async def test_move_task_same_list(mock_client):
 async def test_close_task_tool(mock_client):
     mock_client.close_task.return_value = {"id": 102, "content": "Closing...", "status": 1}
     result = await close_task(list_id="100", task_id="102")
-    assert "Task closed: Closing..." in result
+    data = json.loads(result)
+    assert data["success"] is True
+    assert "Task closed: Closing..." in data["message"]
 
 @pytest.mark.asyncio
 async def test_create_list_tool(mock_client):
     result = await create_list(name="New Project")
-    assert "Checklist created: New Project (ID: 500)" in result
+    data = json.loads(result)
+    assert data["success"] is True
+    assert "Checklist created: New Project" in data["message"]
+    assert data["data"]["id"] == 500
     mock_client.create_checklist.assert_called_with("New Project", False)
 
 # --- WORKFLOW TESTS ---
@@ -170,17 +197,48 @@ async def test_get_tree_depth(mock_client):
     
     # Test Depth 1 (Root only)
     res1 = await get_tree("100", depth=1)
-    assert "Root" in res1
-    assert "Child" not in res1
+    data1 = json.loads(res1)
+    assert "Root" in data1["data"]
+    assert "Child" not in data1["data"]
     
     # Test Depth 2 (Root + Child)
     res2 = await get_tree("100", depth=2)
-    assert "Root" in res2
-    assert "Child" in res2
-    assert "Grandchild" not in res2
+    data2 = json.loads(res2)
+    assert "Root" in data2["data"]
+    assert "Child" in data2["data"]
+    assert "Grandchild" not in data2["data"]
 
 @pytest.mark.asyncio
 async def test_resurface_ideas_tool(mock_client):
-    with patch("random.shuffle"): # Deterministic
+    with patch("random.shuffle"): # Deterministic, stays [100, 200, 888]
         result = await resurface_ideas()
-        assert "Auth Module" in result or "Implement Login" in result or "Setup OAuth" in result
+        data = json.loads(result)
+        assert data["success"] is True
+        # First 3 lists are 100, 200, 888. List 100 has 'Implement Login'.
+        valid_breadcrumbs = ["Auth Module", "Implement Login", "Setup OAuth"]
+        assert any(item["breadcrumb"] in valid_breadcrumbs for item in data["data"])
+
+@pytest.mark.asyncio
+async def test_search_list_json_format(mock_client):
+    """Verify search_list returns correct JSON structure."""
+    with patch('src.server.check_rate_limit', return_value=""):
+        result = await search_list("Server")
+        data = json.loads(result)
+        assert data["success"] is True
+        assert isinstance(data["data"], list)
+        assert any(l["name"] == "Server Maintenance" for l in data["data"])
+
+@pytest.mark.asyncio
+async def test_add_task_error_json_format():
+    """Verify add_task handles exceptions with proper JSON error response."""
+    with patch('src.server.get_client') as mock_get_client:
+        mock_client = AsyncMock()
+        mock_client.token = "fake_token"
+        mock_client.add_task.side_effect = Exception("API Error")
+        mock_get_client.return_value = mock_client
+        
+        result = await add_task("1", "New Task")
+        data = json.loads(result)
+        assert data["success"] is False
+        assert data["action"] == "add_task"
+        assert data["error_details"] == "API Error"
