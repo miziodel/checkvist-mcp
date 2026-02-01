@@ -1,0 +1,229 @@
+---
+version: 1.0.0
+last_modified: 2026-02-01
+status: active
+source: Multi-Persona Strategic Debate (2026-02-01)
+---
+
+# 3-Week Sprint Roadmap: Stabilization & Strategic Feature
+
+**Context**: Consensus plan from multi-persona debate to balance stability, testing, and innovation.
+
+**Source**: [`docs/strategy/260201/strategic_synthesis.md`](strategy/260201/strategic_synthesis.md)
+
+---
+
+## 🎯 Sprint Goals
+
+1. **Week 1**: Restore user trust through surgical fixes and API optimization
+2. **Week 2**: Build safety net through test consolidation and documentation
+3. **Week 3**: Demonstrate safe feature delivery with tool maturity model
+
+---
+
+## 📅 Week 1: Surgical Fixes & API Optimization
+
+**Owner**: Checkvist Expert + MCP Developer  
+**Goal**: Fix critical regressions and optimize API usage
+
+### Day 1-2: API Forensics Sprint
+
+**Priority**: 🔴 CRITICAL
+
+- [ ] Audit all `client.py` methods for missing `with_notes`, `with_tags` parameters
+- [ ] Refactor `get_task()` to use `?with_notes=true&with_tags=true`
+- [ ] Measure API call reduction (target: 60% fewer calls)
+- [ ] Fix `archive_task` using consolidated API response
+- [ ] Fix `apply_template` hierarchy preservation
+
+**Success Criteria**:
+- `archive_task` passes test with notes, tags, and 3-level hierarchy
+- `apply_template` preserves hierarchy in automated test
+- API call count for typical workflow reduced by 50%+
+
+**Fallback**: If not fixed in 2 days, escalate to pair programming session
+
+---
+
+### Day 3-5: User Trust Audit
+
+**Owner**: Final User + QA Analyst  
+**Priority**: 🔴 CRITICAL
+
+- [ ] Audit all 20+ tools for error message quality
+- [ ] Implement standardized response format:
+  ```python
+  {
+    "success": bool,
+    "message": "Human-readable description",
+    "action": "What was attempted",
+    "next_steps": "What user should do next"
+  }
+  ```
+- [ ] Add validation layer in `server.py` to catch common errors before API call
+- [ ] Update tool docstrings with failure scenarios
+
+**Success Criteria**:
+- Every tool returns actionable error message on failure
+- User can understand what happened without reading logs
+- LLM receives clear guidance on retry strategy
+
+---
+
+## 📅 Week 2: Test Consolidation & Safety Net
+
+**Owner**: QA Analyst + Architect  
+**Goal**: Eliminate test coverage gaps and document API knowledge
+
+### Day 6-8: Scenario-to-Test Mapping
+
+**Priority**: 🟠 HIGH
+
+- [ ] Create `tests/scenario_mapping.md` linking each SCENARIOS.md item to test file
+- [ ] Identify gaps (scenarios without tests)
+- [ ] Write missing tests for:
+  - BUG-006 (archive_task list-wrapped response)
+  - BUG-007 (template hierarchy preservation)
+  - BUG-008 (reopen_task list-wrapped response)
+  - SAFE-006 (resource lifecycle management)
+- [ ] Update `COVERAGE_REPORT.md` with completion percentage
+
+**Success Criteria**:
+- 90%+ of scenarios have corresponding automated tests
+- All BUG-* scenarios have regression tests
+- Coverage report shows green status
+
+---
+
+### Day 9-10: Checkvist API Compatibility Matrix
+
+**Owner**: Checkvist Expert + MCP Developer  
+**Priority**: 🟡 MEDIUM
+
+- [ ] Create `docs/checkvist_api_compatibility.md`
+- [ ] Document all 15+ endpoints we use:
+  - Endpoint URL
+  - HTTP method
+  - Required/optional parameters
+  - Response format (with examples)
+  - Known quirks
+  - Workarounds implemented
+- [ ] Add "Last Verified" date for each endpoint
+- [ ] Create script to validate endpoint availability
+
+**Success Criteria**:
+- Complete documentation of all API interactions
+- New developers can understand API quirks in 10 minutes
+- Debugging time for API issues reduced by 70%
+
+---
+
+## 📅 Week 3: Tool Maturity & Strategic Feature
+
+**Owner**: PM + MCP Developer  
+**Goal**: Establish quality framework and ship one feature safely
+
+### Day 11-12: Tool Maturity Classification
+
+**Priority**: 🟡 MEDIUM
+
+- [ ] Classify all tools into Alpha/Beta/Stable:
+  - **Alpha**: Experimental, requires `confirmed=True`, can fail
+  - **Beta**: Has tests, clear errors, 80%+ success rate
+  - **Stable**: Battle-tested, 95%+ success rate, production-ready
+- [ ] Update `server.py` to tag tools with maturity level
+- [ ] Configure LLM to prefer Stable > Beta > Alpha
+- [ ] Add `--experimental` flag to expose Alpha tools
+
+**Success Criteria**:
+- All tools labeled with maturity level
+- LLM only sees Beta+ tools by default
+- Documentation explains maturity model
+
+---
+
+### Day 13-17: Strategic Feature (Smart Templating)
+
+**Owner**: MCP Developer + Final User  
+**Priority**: 🟢 LOW (after stabilization)
+
+- [ ] Implement variable injection for templates:
+  ```
+  Template: "Meeting with {{CLIENT_NAME}} on {{DATE}}"
+  Usage: apply_template(template_id, variables={"CLIENT_NAME": "Acme Corp", "DATE": "2026-02-15"})
+  ```
+- [ ] Follow full TDD cycle:
+  1. Write scenario in SCENARIOS.md
+  2. Write failing test
+  3. Implement feature
+  4. Verify test passes
+- [ ] Document in `walkthrough.md` with examples
+- [ ] Update `lessons_learned.md` with insights
+
+**Success Criteria**:
+- Feature works with 3+ variable types (string, date, list)
+- Has automated tests covering edge cases
+- User can create dynamic templates for recurring workflows
+
+---
+
+## 📊 Success Metrics
+
+### Week 1 Metrics
+- [ ] `archive_task` success rate: 60% → **100%**
+- [ ] `apply_template` hierarchy preservation: 0% → **100%**
+- [ ] API calls per workflow: **-50%** reduction
+- [ ] User error clarity rating: **8/10**
+
+### Week 2 Metrics
+- [ ] Scenario test coverage: 70% → **90%+**
+- [ ] API compatibility matrix: **100%** endpoint coverage
+- [ ] Regression test suite: 9 → **15+** tests
+- [ ] Resource leak incidents: 3 → **0**
+
+### Week 3 Metrics
+- [ ] Tool maturity classification: **100%** tools labeled
+- [ ] Strategic feature shipped: **Smart templating**
+- [ ] User trust score: 6/10 → **9/10**
+- [ ] Development velocity: **2x** faster debugging
+
+---
+
+## 🚨 Red Lines (Stop and Reassess)
+
+If any of these occur, **STOP** the sprint and reconvene stakeholders:
+
+1. **Data Loss Incident**: Any user reports losing tasks due to our tools
+2. **API Ban**: Checkvist blocks our account due to rate limiting
+3. **Security Breach**: Prompt injection causes unauthorized data access
+4. **Resource Exhaustion**: Server/client hangs requiring manual restart
+5. **User Churn**: 3+ users abandon system citing reliability issues
+
+---
+
+## 🔄 Feedback Loops
+
+### Daily Standups (5 minutes)
+- What did you ship yesterday?
+- What are you shipping today?
+- Any blockers?
+
+### Weekly Retrospectives (30 minutes)
+- What went well?
+- What needs improvement?
+- Update `lessons_learned.md`
+
+### User Feedback Sessions (bi-weekly)
+- Demo new features to Final User persona
+- Collect trust score (1-10)
+- Prioritize pain points
+
+---
+
+## 📚 Related Documentation
+
+- [Multi-Persona Debate](strategy/260201/project_debate.md) - Full debate transcript
+- [Strategic Synthesis](strategy/260201/strategic_synthesis.md) - Detailed implementation plan
+- [Critical Insights](strategy/260201/critical_insights.md) - Breakthrough discoveries
+- [Backlog](backlog.md) - Long-term feature backlog
+- [Scenarios](../tests/SCENARIOS.md) - Test scenarios and vision mapping
