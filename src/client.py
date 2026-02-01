@@ -10,7 +10,11 @@ class CheckvistClient:
         self.username = username
         self.api_key = api_key
         self.token = None
-        self.client = httpx.AsyncClient(base_url=self.BASE_URL)
+        self.client = httpx.AsyncClient(base_url=self.BASE_URL, timeout=httpx.Timeout(10.0))
+
+    async def close(self):
+        """ Close the underlying HTTP client. """
+        await self.client.aclose()
 
     async def _safe_json(self, response: httpx.Response):
         """ Safely parse JSON or return an empty dict if the body is empty (e.g. 204 No Content). """
@@ -166,14 +170,14 @@ class CheckvistClient:
         if position:
             params["position"] = position
             
-        response = await self.client.post(f"/checklists/{list_id}/import.json", params=params)
+        response = await self.client.post(f"/checklists/{list_id}/import.json", data=params)
         response.raise_for_status()
         return await self._safe_json(response)
 
     async def add_note(self, list_id: int, task_id: int, note: str):
         """ Add a comment/note to a specific task. """
         data = {"comment[comment]": note}
-        response = await self.client.post(f"/checklists/{list_id}/tasks/{task_id}/comments.json", params=data)
+        response = await self.client.post(f"/checklists/{list_id}/tasks/{task_id}/comments.json", data=data)
         response.raise_for_status()
         return await self._safe_json(response)
 

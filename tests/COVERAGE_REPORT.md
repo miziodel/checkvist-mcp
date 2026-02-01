@@ -28,6 +28,8 @@ Execution of `pytest tests` passed (60/60 tests). The suite now includes `tests/
 | BUG-005     | Search Tags Scope     | ✅           | ✅      | Covered              |
 | BUG-006     | Archive List Wrapping | ✅           | ✅      | Covered              |
 | BUG-007     | Template Hierarchy    | ✅           | ✅      | Covered              |
+| BUG-008     | Reopen List Wrapping  | ✅           | ✅      | Covered (repro_bugs) |
+| BUG-009     | Import Body Hygiene   | ✅           | ✅      | Covered (live_verify)|
 | BULK-001    | Bulk Import           | ✅           | ✅      | Covered              |
 | BULK-002    | Internal Reparenting  | ✅           | ✅      | Covered              |
 | BULK-003    | Cross-List Migration  | ✅           | ✅      | Covered              |
@@ -48,6 +50,7 @@ Execution of `pytest tests` passed (60/60 tests). The suite now includes `tests/
 | SAFE-003    | Rate Limit Warning    | ✅           | ✅      | Covered              |
 | SAFE-004    | Breadcrumbs           | ✅           | ✅      | Covered              |
 | SAFE-005    | Triage Confirmation   | ✅           | ✅      | Covered              |
+| SAFE-006    | Resource Shutdown     | ✅           | ✅      | Covered (live_verify)|
 
 ## Recommendations
 Maintain the `tests/test_bug_report_verified.py` file for all future regressions to keep the core scenario tests clean.

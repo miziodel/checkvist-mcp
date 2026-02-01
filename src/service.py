@@ -109,27 +109,60 @@ class CheckvistService:
         
         return result
 
-    async def archive_task(self, list_id: int, task_id: int):
-        """Robust archiving (Fix BUG-002)."""
+    async def reopen_task(self, list_id: int, task_id: int) -> Dict[str, Any]:
+        """Reopen a task with robust response handling."""
         client = await self._get_authed_client()
-        task = await client.get_task(list_id, task_id)
-        # Robust handling for list-wrapped task responses
-        if isinstance(task, list) and len(task) > 0:
-            task = task[0]
+        response = await client.reopen_task(list_id, task_id)
         
-        tags = task.get('tags', [])
-        # Robust tag conversion (Fix BUG-002)
-        if isinstance(tags, dict):
-            tag_list = list(tags.keys())
-        elif isinstance(tags, list):
-            tag_list = tags
-        else:
-            tag_list = []
+        # Handle list-wrapped response
+        if isinstance(response, list) and len(response) > 0:
+            return response[0]
+        return response
+
+    async def archive_task(self, list_id: int, task_id: int) -> str:
+        """Recursive archiving with robust tag and response handling (Fix BUG-002)."""
+        client = await self._get_authed_client()
+        all_tasks = await client.get_tasks(list_id)
+        
+        # 1. Identify target task and its descendants
+        def get_descendants(pid, tasks):
+            descendants = []
+            for t in tasks:
+                if t.get('parent_id') == pid:
+                    descendants.append(t)
+                    descendants.extend(get_descendants(t['id'], tasks))
+            return descendants
             
-        if "deleted" not in tag_list:
-            tag_list.append("deleted")
+        target_task = next((t for t in all_tasks if t['id'] == task_id), None)
+        if not target_task:
+            raise ValueError(f"Task {task_id} not found in list {list_id}")
             
-        return await client.update_task(list_id, task_id, tags=",".join(tag_list))
+        descendants = get_descendants(task_id, all_tasks)
+        targets = [target_task] + descendants
+        
+        # 2. Apply tag to all
+        count = 0
+        for t in targets:
+            # Handle possible list-wrapped items in 'all_tasks' (defensive)
+            if isinstance(t, list) and len(t) > 0:
+                t = t[0]
+            
+            raw_tags = t.get('tags', [])
+            if isinstance(raw_tags, list):
+                tag_list = raw_tags
+            elif isinstance(raw_tags, dict):
+                tag_list = list(raw_tags.keys())
+            elif isinstance(raw_tags, str) and raw_tags:
+                tag_list = [tag.strip() for tag in raw_tags.split(',')]
+            else:
+                tag_list = []
+                
+            if "deleted" not in tag_list:
+                tag_list.append("deleted")
+                await client.update_task(list_id, t['id'], tags=",".join(tag_list))
+                count += 1
+                
+        return f"Task {task_id} and {len(descendants)} subtasks successfully archived (updated {count} items)."
 
     async def get_tree(self, list_id: int, depth: int = 1) -> List[Dict[str, Any]]:
         client = await self._get_authed_client()

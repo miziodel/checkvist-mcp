@@ -150,6 +150,22 @@ When the Agent calls `apply_template`
 Then the target list contains the same 3-level hierarchy with correct indentation.
 ```
 
+### BUG-008: Reopen Task List-Wrapped Response
+*Issue: API returns `[{...}]` for reopen operations, causing AttributeError.*
+```gherkin
+Given a closed task ID
+When the API returns a list-wrapped object upon reopening
+Then the server correctly normalizes the response and completes the operation.
+```
+
+### BUG-009: Import Tasks Payload Hang
+*Issue: Large text imports via query parameters cause server timeouts/hangs.*
+```gherkin
+Given a large amount of hierarchical text
+When the Agent calls `import_tasks`
+Then the content is sent in the POST body (not URL) to ensure stability.
+```
+
 ---
 
 ## 📦 Phase 3: Bulk & Group Operations (BULK)
@@ -320,6 +336,15 @@ When the Agent tries to move a task or migrate tasks
 Then the tool returns a summary of the action and a `[!IMPORTANT]` note requesting user confirmation before proceeding.
 And the action is NOT performed until a "confirmed" parameter is set or the LLM explicitly acknowledges.
 *Note: For this v1, we will implement the warning message first to allow the LLM to pause.*
+```
+
+### SAFE-006: Managed Resource Shutdown
+*Vision Match: Stability / Lifecycle Management*
+```gherkin
+Given an active MCP server or verification script
+When the process finishes or encounters an error
+Then all HTTP client connections are explicitly closed via a shutdown hook
+And no background hanging processes remain.
 ```
 
 ---

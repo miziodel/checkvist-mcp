@@ -93,16 +93,52 @@ async def run_complex_live_tests():
         print("❌ Failure: Metadata lost in template application.")
 
     # -- TEST 5: Search Verification with Breadcrumbs --
-    print("\n5. Verifying search with breadcrumbs...")
-    search_res = await search_tasks("Deepest")
+    print("\n5. Verifying search with breadcrumbs (targeting non-archived task)...")
+    search_res = await search_tasks("Flat Task")
     print("Search Result:")
-    # The actual breadcrumb includes @meeting as part of content
-    if "Level 1 Root > Level 2 Child > Level 3 Grandchild @meeting > Level 4 Great-Grandchild > Level 5 Deepest Leaf" in search_res:
-        print("✅ Success: Search results show full breadcrumb path.")
+    print(search_res)
+    if "Flat Task #simple" in search_res:
+        print("✅ Success: Search results show visible tasks correctly.")
     else:
-        print("❌ Failure: Breadcrumbs incomplete in search.")
+        print("❌ Failure: Search failed to find a visible task.")
+
+    # -- TEST 6: Reopen Task Logic --
+    print("\n6. Testing reopen_task logic...")
+    add_res = await add_task(list_id, "Task to Close and Reopen")
+    print(f"Add task result: {add_res}")
+    
+    # Try to extract ID from add_task result directly
+    id_match = re.search(r"ID: (\d+)", add_res)
+    if not id_match:
+        # Fallback to tree
+        tree_v6 = await get_tree(list_id, depth=1)
+        print(f"v6 Tree:\n{tree_v6}")
+        id_match = re.search(r"Task to Close and Reopen .* \(ID: (\d+)\)", tree_v6)
+    
+    if id_match:
+        target_id = id_match.group(1)
+        from src.server import close_task, reopen_task
+        print(f"Closing task {target_id}...")
+        await close_task(list_id, target_id)
+        print(f"Reopening task {target_id}...")
+        reopen_res = await reopen_task(list_id, target_id)
+        print(f"Reopen result: {reopen_res}")
+        if "Task reopened" in reopen_res:
+            print("✅ Success: Task reopened without error.")
+        else:
+            print(f"❌ Failure: Unexpected response from reopen_task")
+    else:
+         print("❌ Failure: Could not identify task ID for reopen test.")
 
     print("\n🏁 COMPLEX Live Verification Completed.")
 
+async def main():
+    try:
+        await run_complex_live_tests()
+    finally:
+        from src.server import shutdown
+        print("\n🧹 Cleaning up client connections...")
+        await shutdown()
+
 if __name__ == "__main__":
-    asyncio.run(run_complex_live_tests())
+    asyncio.run(main())

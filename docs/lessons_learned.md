@@ -13,6 +13,10 @@ status: active
 - **Undocumented/Non-functional Endpoints**: The `move.json` POST endpoint (often guessed for moves) exists but returns an empty body and performs no action for cross-list moves. 
 - **Hidden Signatures**: Cross-list moves are correctly achieved via a **PUT request to the task endpoint with `task[checklist_id]`**.
 - **Type Coercion**: LLM clients may send IDs as strings. Explicitly casting input parameters to `int` in the tool layer prevents `TypeError` and `AttributeError` during API calls.
+- **Payload Location Hygiene**: For `POST` operations involving large text (imports), avoid query parameters (`params`). Some servers hang or return 414. Always use the request body (`data` or `json`).
+
+### 2. Resource Lifecycle Management
+- **Persistent Clients & Timeouts**: Asynchronous clients like `httpx` must have explicit timeouts (e.g., 10s) and a forced shutdown hook (`aclose()`) to prevent resource leaks and "hanging" processes during testing or production.
 
 ### 2. Robust Error Handling
 - **Passthrough vs. Friendly Errors**: Avoid passing raw Python exceptions to the MCP client. Use `try...except` in tools to return a formatted string that help the LLM understand what went wrong and how to fix it (e.g., "Invalid ID format" vs. `ValueError`).

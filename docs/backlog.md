@@ -39,7 +39,7 @@ This document is the single source of truth for all planned improvements, archit
 ---
 
 ## 🧪 QA & Security
-- [ ] **Resilience Testing**: Implement `tests/test_error_handling.py` (API 500s, 403s, Timeouts).
+- [x] **Resilience Testing**: Implement `tests/test_regressions.py` (API 500s, 403s, Timeouts). -> *Consolidated in v1.3.0*.
 - [ ] **Input Sanitization**: Implement `tests/test_input_validation.py` to verify resilience against Type Poisoning.
 - [ ] **Test Hierarchy**: Reorganize `tests/` into `unit/`, `integration/`, and `orchestration/` directories.
 - [ ] **Secret Masking Audit**: Verify that `CHECKVIST_API_KEY` is never leaked in tool error outputs or logs.

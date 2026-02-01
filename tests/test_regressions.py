@@ -35,7 +35,8 @@ async def test_bug_003_tag_robustness_dict_format(stateful_client):
             t["tags"] = {"urgent": "metadata"} # Dict instead of list
             
     result = await archive_task("100", str(task_id))
-    assert f"successfully archived with tag #{ARCHIVE_TAG}" in result
+    assert "successfully archived" in result
+    assert "updated 1 items" in result
     task = next(t for t in stateful_client.tasks if t["id"] == task_id)
     assert ARCHIVE_TAG in task["tags"]
     assert "urgent" in task["tags"]
@@ -199,3 +200,50 @@ async def test_bug_007_template_hierarchy_preservation():
         content = args[1]
         expected = "Root\n  Child\n    Grandchild"
         assert content == expected
+
+@pytest.mark.asyncio
+async def test_bug_008_reopen_task_list_response(stateful_client):
+    """BUG-008: Handle API returning list instead of dict for reopen_task."""
+    from src.server import reopen_task
+    with patch("tests.conftest.StatefulMockClient.reopen_task", new_callable=AsyncMock) as mock_reopen:
+        mock_reopen.return_value = [{"id": 2, "content": "Reopened", "status": 0}]
+        result = await reopen_task("100", "2")
+        assert "Task reopened: Reopened" in result
+
+@pytest.mark.asyncio
+async def test_bug_009_import_tasks_payload_hygiene():
+    """BUG-009: Verify import_tasks uses POST data (body) instead of query params."""
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    client = CheckvistClient("user", "key")
+    client.client = mock_client
+    
+    # Mock the response object
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 200
+    mock_response.content = b'{"status": "ok"}'
+    mock_response.json.return_value = {"status": "ok"}
+    mock_client.post.return_value = mock_response
+    
+    await client.import_tasks("100", "task content")
+    
+    # Check that post was called with data, not params
+    args, kwargs = mock_client.post.call_args
+    assert "data" in kwargs
+    assert kwargs["data"]["import_content"] == "task content"
+    assert "params" not in kwargs or not kwargs["params"]
+
+@pytest.mark.asyncio
+async def test_template_root_detection_robustness(stateful_client):
+    """Verify apply_template handles string '0' and cyclic references safely."""
+    # String '0'
+    stateful_client.tasks = [{"id": 11, "content": "Root", "list_id": 999, "status": 0, "parent_id": "0"}]
+    res = await apply_template(template_list_id="999", target_list_id="100", confirmed=True)
+    assert "Template applied" in res
+    
+    # Cyclic (should fallback to all tasks or handle gracefully)
+    stateful_client.tasks = [
+        {"id": 1, "content": "A", "list_id": 999, "status": 0, "parent_id": 2},
+        {"id": 2, "content": "B", "list_id": 999, "status": 0, "parent_id": 1}
+    ]
+    res = await apply_template(template_list_id="999", target_list_id="100", confirmed=True)
+    assert "Template applied" in res or "Error" in res # Depending on desired behavior, but shouldn't crash

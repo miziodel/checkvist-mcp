@@ -77,6 +77,13 @@ def get_service():
         service = CheckvistService(c)
     return service
 
+async def shutdown():
+    """ Properly close the client session. """
+    global client
+    if client:
+        await client.close()
+        client = None
+
 @mcp.tool()
 async def search_list(query: str) -> str:
     """ Search for a checklist by name (fuzzy match). 
@@ -356,10 +363,8 @@ async def rename_list(list_id: str, new_name: str) -> str:
 async def reopen_task(list_id: str, task_id: str) -> str:
     """ Reopen a closed task. """
     try:
-        c = get_client()
-        if not c.token:
-            await c.authenticate()
-        task = await c.reopen_task(int(list_id), int(task_id))
+        s = get_service()
+        task = await s.reopen_task(int(list_id), int(task_id))
         return f"Task reopened: {task.get('content', 'Unknown')} (ID: {task['id']})"
     except Exception as e:
         return f"Error reopening task: {str(e)}"
@@ -381,12 +386,19 @@ async def apply_template(template_list_id: str, target_list_id: str, confirmed: 
     if not template_tasks:
         return f"Error: Template list {template_list_id} is empty or not found."
         
-    # Build hierarchy (Logic from service.get_tree but unfiltered)
+    # Build hierarchy (Robust root detection for moved tasks BUG-003/006)
     task_map = {t['id']: {'data': t, 'children': []} for t in template_tasks}
     roots = []
     for t in template_tasks:
-        pid = t.get('parent_id')
-        is_root = pid is None or pid == 0 or pid == ""
+        pid_raw = t.get('parent_id')
+        # Normalize pid to int safely
+        try:
+            pid = int(pid_raw) if pid_raw is not None and str(pid_raw).strip() != "" else 0
+        except (ValueError, TypeError):
+            pid = 0
+            
+        is_root = pid == 0
+        
         if not is_root and pid in task_map:
             task_map[pid]['children'].append(task_map[t['id']])
         else:
@@ -600,52 +612,9 @@ async def archive_task(list_id: str, task_id: str) -> str:
     Note: Archived tasks are filtered out from tree views and search results.
     """
     try:
-        c = get_client()
-        if not c.token:
-            await c.authenticate()
-        
-        l_id = int(list_id)
-        t_id = int(task_id)
-        
-        # 1. Fetch all tasks in list to identify subtasks
-        all_tasks = await c.get_tasks(l_id)
-        
-        # 2. Identify target task and its descendants
-        def get_descendants(pid, tasks):
-            descendants = []
-            for t in tasks:
-                if t.get('parent_id') == pid:
-                    descendants.append(t)
-                    descendants.extend(get_descendants(t['id'], tasks))
-            return descendants
-            
-        target_task = next((t for t in all_tasks if t['id'] == t_id), None)
-        if not target_task:
-            return f"Error: Task {task_id} not found in list {list_id}."
-            
-        descendants = get_descendants(t_id, all_tasks)
-        targets = [target_task] + descendants
-        
-        # 3. Apply tag to all
-        for t in targets:
-            # Handle list-wrapped task (Robustness BUG-001/002)
-            if isinstance(t, list) and len(t) > 0:
-                t = t[0]
-            
-            raw_tags = t.get('tags', [])
-            if isinstance(raw_tags, list):
-                current_tags = raw_tags
-            elif isinstance(raw_tags, dict):
-                # If it's a dict (e.g. metadata or unexpected API format), convert to list or start fresh
-                current_tags = list(raw_tags.keys()) if raw_tags else []
-            else:
-                current_tags = []
-
-            if ARCHIVE_TAG not in current_tags:
-                current_tags.append(ARCHIVE_TAG)
-                await c.update_task(l_id, t['id'], tags=",".join(current_tags))
-                
-        return f"Task {task_id} and {len(descendants)} subtasks successfully archived with tag #{ARCHIVE_TAG}."
+        s = get_service()
+        result = await s.archive_task(int(list_id), int(task_id))
+        return result
     except Exception as e:
         return f"Error archiving task: {str(e)}"
 
