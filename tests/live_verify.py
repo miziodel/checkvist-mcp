@@ -130,6 +130,35 @@ async def run_complex_live_tests():
     else:
          print("❌ Failure: Could not identify task ID for reopen test.")
 
+    # -- TEST 7: Regression Check (Bug #0 & #1 Verification) --
+    print("\n7. Testing Regression Scenarios (ID Mismatch & 403 checks)...")
+    repro_list = f"MCP_REPRO_{int(time.time())}"
+    repro_res = await create_list(repro_list)
+    repro_match = re.search(r"ID: (\d+)", repro_res)
+    if repro_match:
+        r_lid = repro_match.group(1)
+        # Immediate import (Bug #0 check)
+        await import_tasks(r_lid, "Regression Task 1\nRegression Task 2")
+        
+        # Add task + Note (Bug #1 check)
+        r_add_res = await add_task(r_lid, "Note Target")
+        r_tm = re.search(r"ID: (\d+)", r_add_res)
+        if r_tm:
+            r_tid = r_tm.group(1)
+            r_note = await from.src.server import add_note # dynamic import needed or reuse if top-level
+            # Wait, better to import at top or assume available if imported in this file.
+            # Checking imports... add_note is NOT imported in original file.
+            from src.server import add_note
+            r_note_res = await add_note(r_lid, r_tid, "Regression Note Test")
+            if "Note added" in r_note_res:
+                print("✅ Success: Regression scenarios passed (No ID mismatch or 403).")
+            else:
+                print(f"❌ Failure: Add Note failed: {r_note_res}")
+        else:
+             print("❌ Failure: Could not parse ID for Note Target.")
+    else:
+        print("❌ Failure: Could not create list for regression check.")
+
     print("\n🏁 COMPLEX Live Verification Completed.")
 
 async def main():

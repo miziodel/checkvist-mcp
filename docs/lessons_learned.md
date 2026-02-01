@@ -15,6 +15,7 @@ status: active
 - **Type Coercion**: LLM clients may send IDs as strings. Explicitly casting input parameters to `int` in the tool layer prevents `TypeError` and `AttributeError` during API calls.
 - **Payload Location Hygiene**: For `POST` operations involving large text (imports), avoid query parameters (`params`). Some servers hang or return 414. Always use the request body (`data` or `json`).
 - **API Efficiency Opportunity** (2026-02-01): The Checkvist API supports `?with_notes=true&with_tags=true` parameters to fetch task metadata in a single call. Using these parameters can reduce API calls by 60% and simplify error handling (1 call = 1 failure mode vs 3).
+- **Smart Syntax Limits in Import**: The `/import.json` endpoint supports priority (`!N`) and tags (`#tag`), but **NOT** due dates (`^date`) or assignments (`@user`). These must be set via `update_task` after import. Attempting to use them in import results in raw text.
 
 ### 2. Resource Lifecycle Management
 - **Persistent Clients & Timeouts**: Asynchronous clients like `httpx` must have explicit timeouts (e.g., 10s) and a forced shutdown hook (`aclose()`) to prevent resource leaks and "hanging" processes during testing or production.
