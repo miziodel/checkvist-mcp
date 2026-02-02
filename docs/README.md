@@ -1,6 +1,6 @@
 ---
-version: 1.1.0
-last_modified: 2026-01-31
+version: 1.2.0
+last_modified: 2026-02-01
 status: active
 ---
 
@@ -10,6 +10,7 @@ Welcome to the Checkvist MCP documentation. This hub ensures 100% connectivity a
 
 ## 🚀 Core Vision
 - **[Vision & Roadmap](vision.md)**: The underlying philosophy and project direction.
+- **[User Persona](persona.md)**: The "Productivity Architect" - our target user profile.
 - **[Architecture](architecture.md)**: Technical design and tool definitions.
 - **[Risks & Mitigation](risks.md)**: Analysis of constraints and safety measures.
 - **[Risk Mitigation Status](risk_mitigation_status.md)**: Real-time status of safety implementations.
@@ -20,6 +21,8 @@ Welcome to the Checkvist MCP documentation. This hub ensures 100% connectivity a
 - **[Checkvist Tips & Pro Features](checkvist_doc.md)**: Mastering the outliner.
 
 ## 🔬 Research & Analysis
+- **[User Research (Feb 2026)](research/user_research_2026_02.md)**: Checkvist forum analysis and user behavior patterns.
+- **[Smart Triage Heuristics](research/smart_triage_heuristics.md)**: AI logic rules for autonomous inbox processing.
 - **[Research Hub (README)](research/README.md)**: Deep dives into PKM methodologies (Torres, Shipper, Forte, etc.).
 - **Competitive Analysis**:
     - [Notion MCP Strategy](analysis/notion.md)

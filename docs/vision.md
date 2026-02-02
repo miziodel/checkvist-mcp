@@ -1,6 +1,6 @@
 ---
-version: 1.0.0
-last_modified: 2026-01-28
+version: 1.1.0
+last_modified: 2026-02-01
 status: active
 ---
 
@@ -16,6 +16,7 @@ Non stiamo inventando da zero. Stiamo assemblando i "Superpoteri" dei migliori t
 | **GitHub** 🐙    | Issues & Deps     | L'IA crea link di dipendenza: "Non puoi fare B se non finisci A". |
 | **Readwise** 🧠  | Spaced Repetition | L'IA ripesca vecchie idee dimenticate per darti nuovi spunti.     |
 | **Superhuman** ⚡ | Zero Inbox        | Comandi rapidi per nascondere/snoozare task non urgenti.          |
+| **Obsidian** ⌨️    | Keyboard-First    | Comandi mimici (`LL`, `MM`) per navigazione e triage senza mouse.|
 
 ---
 
@@ -45,6 +46,7 @@ Semplice, Veloce, Stateless.
 ---
 
 ## Documentazione Correlata
+- [User Persona](persona.md)
 - [Architecture](architecture.md)
 - [Risks & Mitigation](risks.md)
 - [Use Cases](use-cases.md)

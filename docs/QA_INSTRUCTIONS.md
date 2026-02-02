@@ -223,6 +223,27 @@ move_task_tool(list_id, root_task_id, target_list_id)
 
 ---
 
+## 🏎️ Cycle v8: Performance Benchmarks
+**Objective**: Ensure the MCP server maintains a "Keyboard-First" velocity.
+
+### Test 8.1: Rapid Triage (Zero-Inbox)
+- **Setup**: Populate "Inbox" with 10 generic tasks (e.g., "Task 1", "Task 2"...).
+- **Execution**: 
+  1. Ask the Agent to triage all 10 tasks into a different checklist.
+  2. Measure the wall-clock time from the initial request to the final confirmation.
+- **Verification**: 
+  - [ ] Does the entire operation complete in **< 30 seconds**?
+  - [ ] Are all 10 tasks correctly relocated?
+
+### Test 8.2: Large List Parsing
+- **Setup**: Identify or create a list with 100+ tasks.
+- **Action**: Run `get_tree(id, depth=2)`.
+- **Verification**: 
+  - [ ] Is the response received in **< 5 seconds**?
+  - [ ] Does the Markdown representation look coherent?
+
+---
+
 ## 🏁 Final Verification
 - [ ] Run `get_review_data(timeframe="weekly")`. Compare numbers with UI.
 - [ ] Clean up: Delete all `[QA-v*]` lists created during testing.

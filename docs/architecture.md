@@ -1,6 +1,6 @@
 ---
-version: 1.1.0
-last_modified: 2026-01-31
+version: 1.1.1
+last_modified: 2026-02-01
 status: active
 ---
 
@@ -13,7 +13,7 @@ Questo documento è il punto di riferimento per lo sviluppo del server MCP. Unis
 | Fonte | Concetto | Applicazione Checkvist |
 | :--- | :--- | :--- |
 | **Notion** | Search-First | L'IA cerca sempre l'ID della lista/task per nome prima di operare. |
-| **Obsidian** | Scrittura Atomica | Append veloce e gestione in Markdown per mantenere la leggibilità. |
+| **Obsidian** | Keyboard-First | Ogni workflow deve essere più veloce della navigazione manuale (`LL`, `MM`). |
 | **ClickUp** | Metadati Ricchi | Uso intensivo di note e priorità per contestualizzare ogni task. |
 
 ## 2. Flusso di Lavoro Avanzato (Efficiency & NLP)

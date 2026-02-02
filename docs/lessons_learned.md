@@ -90,9 +90,25 @@ status: active
 
 **Reference**: See `docs/strategy/260201/` for full debate transcript and synthesis.
 
+### 6. User Research Validates Design Decisions (2026-02-01)
+**Discovery**: Real user behavior research confirms architectural priorities.
+
+**Method**: Analyzed [Checkvist forums](https://discuss.checkvist.com/) to understand how power users actually work.
+
+**Key Findings**:
+- **Keyboard-First Obsession**: Users measure success by "how few mouse clicks". Any automation must be faster than manual shortcuts (`LL`, `MM`).
+- **PARA + GTD Dominance**: Users rely on numerical prefixes (`1. Projects`) and context tags (`#work`) for organization.
+- **Triage Overhead**: Manual inbox processing is the #1 pain point - perfect target for AI automation.
+
+**Implication**: The "Productivity Architect" persona demands that every tool respects speed and hierarchy. Features like `triage_inbox` are now validated by real user needs, not assumptions.
+
+**Reference**: See [User Research (Feb 2026)](research/user_research_2026_02.md) and [Smart Triage Heuristics](research/smart_triage_heuristics.md).
+
 ---
 
 **Related Documentation**:
+- [User Persona](persona.md)
+- [User Research (Feb 2026)](research/user_research_2026_02.md)
 - [Strategic Debate (2026-02-01)](strategy/260201/project_debate.md)
 - [Critical Insights](strategy/260201/critical_insights.md)
 - [3-Week Sprint Roadmap](roadmap_3week_sprint.md)

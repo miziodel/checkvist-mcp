@@ -51,13 +51,9 @@ This document is the single source of truth for all planned improvements, archit
 *Emerged from 2026-02-01 Strategic Debate*
 
 ### User Behavior Research
-- [ ] **Checkvist Forum Analysis**: Research Checkvist forum to understand:
-  - How users actually use Checkvist (workflows, patterns)
-  - What methodologies they apply (GTD, PARA, Zettelkasten, etc.)
-  - Common pain points and feature requests
-  - Power user tips and undocumented features
-- [ ] **User Persona Validation**: Validate "Final User" persona with real user feedback
-- [ ] **Usage Pattern Analysis**: Identify common task organization patterns to inform AI triage logic
+- [x] **Checkvist Forum Analysis**: Research Checkvist forum to understand workflows, methodologies (GTD, PARA), and pain points. -> *Completed 2026-02-01 in `docs/research/user_research_2026_02.md`*.
+- [ ] **User Persona Validation**: Validate "Final User" persona with real user feedback (Initial validation done in research doc).
+- [ ] **Usage Pattern Analysis**: Identify common task organization patterns to inform AI triage logic. -> *Initial heuristics defined in `docs/research/smart_triage_heuristics.md`*.
 
 ### Metrics & Observability
 - [ ] **Tool Success Rate Tracking**: Implement telemetry to measure success rate per tool (target: 95%+ for Stable tools)

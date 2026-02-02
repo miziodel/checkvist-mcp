@@ -11,6 +11,8 @@ source: Multi-Persona Strategic Debate (2026-02-01)
 
 **Source**: [`docs/strategy/260201/strategic_synthesis.md`](strategy/260201/strategic_synthesis.md)
 
+**User Research Validation**: The "Smart Templating" feature (Week 3) and triage logic align with the [Productivity Architect persona](persona.md) discovered through [Checkvist forum research](research/user_research_2026_02.md).
+
 ---
 
 ## 🎯 Sprint Goals
@@ -167,6 +169,40 @@ source: Multi-Persona Strategic Debate (2026-02-01)
 
 ---
 
+### Day 18-21: Strategic Feature (Triage Inbox Automation)
+
+**Owner**: MCP Developer + Final User  
+**Priority**: 🟠 HIGH (validated by user research)
+
+- [ ] Implement `triage_inbox` tool using [smart_triage_heuristics.md](research/smart_triage_heuristics.md):
+  - H1.1: Tag Inheritance (children inherit parent context)
+  - H2.1: Project Promotion (large task clusters → dedicated projects)
+  - H3.1: Similarity Routing (match inbox items to existing projects)
+- [ ] Follow full TDD cycle:
+  1. Write scenario in SCENARIOS.md (PROC-001 extension)
+  2. Write failing test
+  3. Implement feature
+  4. Verify test passes
+- [ ] Return triage suggestions in keyboard-friendly format:
+  ```
+  Inbox Triage Suggestions:
+  1. "Buy milk" → Move to "Home" (#errands)
+  2. "Fix login bug" → Move to "Website Security" (#urgent)
+  3. "Read article" → Move to "Resources" (#read)
+  
+  Confirm all? (y/n)
+  ```
+- [ ] Document in `walkthrough.md` with examples
+- [ ] Update `lessons_learned.md` with insights
+
+**Success Criteria**:
+- Tool suggests correct destination for 80%+ of inbox items
+- Respects keyboard-first workflow (no mouse required)
+- User can batch-confirm or reject suggestions
+- Validated against "Productivity Architect" persona needs
+
+---
+
 ## 📊 Success Metrics
 
 ### Week 1 Metrics
@@ -183,7 +219,8 @@ source: Multi-Persona Strategic Debate (2026-02-01)
 
 ### Week 3 Metrics
 - [ ] Tool maturity classification: **100%** tools labeled
-- [ ] Strategic feature shipped: **Smart templating**
+- [ ] Strategic features shipped: **Smart templating + Triage inbox automation**
+- [ ] Triage accuracy: **80%+** correct suggestions
 - [ ] User trust score: 6/10 → **9/10**
 - [ ] Development velocity: **2x** faster debugging
 
@@ -222,6 +259,9 @@ If any of these occur, **STOP** the sprint and reconvene stakeholders:
 
 ## 📚 Related Documentation
 
+- [User Persona](persona.md) - The "Productivity Architect" target user
+- [User Research (Feb 2026)](research/user_research_2026_02.md) - Forum analysis and behavior patterns
+- [Smart Triage Heuristics](research/smart_triage_heuristics.md) - AI logic rules for automation
 - [Multi-Persona Debate](strategy/260201/project_debate.md) - Full debate transcript
 - [Strategic Synthesis](strategy/260201/strategic_synthesis.md) - Detailed implementation plan
 - [Critical Insights](strategy/260201/critical_insights.md) - Breakthrough discoveries
