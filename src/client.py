@@ -216,6 +216,14 @@ class CheckvistClient:
         response.raise_for_status()
         return await self._safe_json(response)
 
+    async def get_due_tasks(self):
+        """ Get all tasks with due dates across all checklists. 
+            Uses discovered endpoint /checklists/due.json.
+        """
+        response = await self.client.get("/checklists/due.json")
+        response.raise_for_status()
+        return await self._safe_json(response)
+
     async def search_tasks(self, query: str):
         """ Search for tasks using Checkvist's search logic where possible, 
             or a safer iteration.

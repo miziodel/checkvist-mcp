@@ -5,7 +5,7 @@ from src.server import (
     get_client, add_task, import_tasks, search_list,
     add_note, update_task, triage_inbox, move_task_tool,
     close_task, create_list, search_tasks, get_tree, resurface_ideas,
-    get_list_content, list_checklists
+    get_list_content, list_checklists, get_upcoming_tasks
 )
 
 # --- MOCK DATA ---
@@ -39,6 +39,9 @@ def mock_client(mocker):
     client_mock.create_checklist.return_value = {"id": 500, "name": "New Project"}
     
     mocker.patch("src.server.get_client", return_value=client_mock)
+    client_mock.get_due_tasks.return_value = [
+        {"id": 101, "content": "Due Task", "due": "2026/12/31", "checklist_id": 100}
+    ]
     return client_mock
 
 # --- DISCOVERY TESTS ---
@@ -236,9 +239,18 @@ async def test_add_task_error_json_format():
         mock_client.token = "fake_token"
         mock_client.add_task.side_effect = Exception("API Error")
         mock_get_client.return_value = mock_client
-        
         result = await add_task("1", "New Task")
         data = json.loads(result)
         assert data["success"] is False
         assert data["action"] == "add_task"
         assert data["error_details"] == "API Error"
+
+@pytest.mark.asyncio
+async def test_get_upcoming_tasks_tool(mock_client):
+    result = await get_upcoming_tasks(filter="all")
+    data = json.loads(result)
+    assert data["success"] is True
+    assert len(data["data"]) == 1
+    assert data["data"][0]["content"] == "Due Task"
+    assert data["data"][0]["due"] == "2026/12/31"
+    assert data["data"][0]["list_name"] == "Server MCP - Development"

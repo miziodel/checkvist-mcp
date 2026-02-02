@@ -194,6 +194,35 @@ move_task_tool(list_id, root_task_id, target_list_id)
 
 ---
 
+## 📅 Cycle v7: Agenda & Due Dates
+**Objective**: Verify the global "Upcoming" functionality and date-based filtering.
+
+### Test 7.1: Global Date Retrieval
+- **Steps**:
+  1. Create 3 tasks in 3 *different* checklists.
+  2. Assign different dates: `^today`, `^tomorrow`, and `^2029-01-01`.
+  3. Run `get_upcoming_tasks(filter="all")`.
+- **Verification**: 
+  - [ ] Does the tool return all 3 tasks regardless of the list they are in?
+  - [ ] Are the `list_name` fields correct for each task?
+
+### Test 7.2: Filtering Logic
+- **Action**: Run `get_upcoming_tasks(filter="today")`.
+- **Verification**: 
+  - [ ] Does it return *only* the task set to `^today`?
+- **Action**: Run `get_upcoming_tasks(filter="overdue")`.
+- **Verification**: 
+  - [ ] Does it return tasks with dates in the past?
+
+### Test 7.3: Resource Agenda View
+- **Action**: Read the resource `checkvist://due`.
+- **Verification**: 
+  - [ ] Is the output a valid Markdown document?
+  - [ ] Are tasks grouped by date headers (e.g. `## 2026/02/02`)?
+  - [ ] Does it show the checklist name in brackets next to each task?
+
+---
+
 ## 🏁 Final Verification
 - [ ] Run `get_review_data(timeframe="weekly")`. Compare numbers with UI.
 - [ ] Clean up: Delete all `[QA-v*]` lists created during testing.

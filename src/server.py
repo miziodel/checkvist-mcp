@@ -1,6 +1,7 @@
 import os
 import asyncio
 import re
+from datetime import datetime, date, timedelta
 from typing import Any, Optional, List, Dict
 from mcp.server.fastmcp import FastMCP
 from src.client import CheckvistClient
@@ -804,6 +805,101 @@ async def resurface_ideas() -> str:
         )
     except Exception as e:
         return StandardResponse.error(message="Failed to resurface ideas", action="resurface_ideas", next_steps="Try again later.", error_details=str(e))
+
+@mcp.tool()
+async def get_upcoming_tasks(filter: str = "all") -> str:
+    """
+    Get tasks with due dates across all checklists.
+    Filter options: 'today', 'overdue', 'tomorrow', 'all' (default).
+    Use this tool when the user asks about deadlines, "What's due today?", 
+    "What did I miss?", or needs an agenda view.
+    Returns: JSON string with keys 'success', 'message', 'data' (list of tasks).
+    """
+    try:
+        c = get_client()
+        if not c.token:
+            await c.authenticate()
+        
+        # 1. Fetch due tasks
+        tasks = await c.get_due_tasks()
+        
+        # 2. Fetch checklists for naming
+        checklists = await c.get_checklists()
+        list_map = {l['id']: l['name'] for l in checklists}
+        
+        # 3. Filter by date logic
+        today_dt = date.today()
+        tomorrow_dt = today_dt + timedelta(days=1)
+        
+        filtered = []
+        for t in tasks:
+            due_str = t.get('due')
+            if not due_str: continue
+            try:
+                # Format is YYYY/MM/DD according to probe
+                due_date = datetime.strptime(due_str, "%Y/%m/%d").date()
+            except:
+                continue
+            
+            if filter == "today" and due_date == today_dt:
+                filtered.append(t)
+            elif filter == "overdue" and due_date < today_dt:
+                filtered.append(t)
+            elif filter == "tomorrow" and due_date == tomorrow_dt:
+                filtered.append(t)
+            elif filter == "all":
+                filtered.append(t)
+                
+        # 4. Sort by due date
+        filtered.sort(key=lambda x: x.get('due', ''))
+
+        rate_warning = check_rate_limit()
+        formatted = []
+        for t in filtered:
+            list_name = list_map.get(t.get('checklist_id'), "Unknown List")
+            formatted.append({
+                "id": t['id'],
+                "content": t['content'],
+                "due": t['due'],
+                "list_name": list_name,
+                "list_id": t.get('checklist_id')
+            })
+
+        return StandardResponse.success(
+            message=f"Found {len(formatted)} tasks for filter '{filter}'.{rate_warning}",
+            data=formatted
+        )
+    except Exception as e:
+        return StandardResponse.error(
+            message="Failed to fetch upcoming tasks",
+            action="get_upcoming_tasks",
+            next_steps="Verify API connection.",
+            error_details=str(e)
+        )
+
+@mcp.resource("checkvist://due")
+async def due_resource() -> str:
+    """ Get all upcoming due tasks as a formatted resource. """
+    res = await get_upcoming_tasks(filter="all")
+    import json
+    data = json.loads(res)
+    if not data.get('success'):
+        return f"Error: {data.get('message')}"
+    
+    tasks = data.get('data', [])
+    if not tasks:
+        return "No upcoming tasks found with due dates."
+    
+    lines = ["# Upcoming Due Tasks"]
+    # Group by date for better readability
+    current_date = None
+    for t in tasks:
+        if t['due'] != current_date:
+            current_date = t['due']
+            lines.append(f"\n## {current_date}")
+        lines.append(f"- {t['content']} [{t['list_name']}] (ID: {t['id']})")
+        
+    return wrap_data("\n".join(lines))
 
 @mcp.tool()
 async def archive_task(list_id: str, task_id: str) -> str:

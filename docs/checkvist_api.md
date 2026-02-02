@@ -32,6 +32,12 @@ Reference documentation for Checkvist API, retrieved from https://checkvist.com/
 `GET /checklists/{list_id}/tasks.json`
 - Parameters: `with_notes`, `order`.
 
+### Get all due tasks (Vista Due Date)
+`GET /checklists/due.json`
+- **Undocumented Endpoint** (Found via UI forensics).
+- Returns all tasks with a due date across all checklists.
+- Supports `with_closed=true` parameter.
+
 ### Create list items (Single or Bulk)
 `POST /checklists/{list_id}/tasks.json`
 - **Single**: `task[content]`, `task[parent_id]`, `task[tags]`, `task[due_date]`, `task[position]`, `task[priority]`.

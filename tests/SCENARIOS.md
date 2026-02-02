@@ -48,6 +48,20 @@ When the Agent calls `search_tasks(query="Docker config")`
 Then it searches across all checklists and returns matching tasks with their list names.
 ```
 
+### DISC-005: Global Upcoming Tasks
+*Vision Match: Todoist Style / Dynamic Planning*
+```gherkin
+When the Agent calls `get_upcoming_tasks(filter="today")`
+Then it returns all tasks across all checklists that are due today.
+```
+
+### DISC-006: Due Date Agenda View
+*Vision Match: Full Context / Daily Review*
+```gherkin
+When the Agent reads the resource `checkvist://due`
+Then it returns a formatted Markdown agenda of all upcoming tasks grouped by date.
+```
+
 ---
 
 ## ✍️ Phase 2: Core Task Management (TASK)

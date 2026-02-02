@@ -1,6 +1,6 @@
 ---
-version: 1.2.0
-last_modified: 2026-02-01
+version: 1.3.0
+last_modified: 2026-02-02
 status: active
 ---
 
@@ -16,6 +16,7 @@ status: active
 - **Payload Location Hygiene**: For `POST` operations involving large text (imports), avoid query parameters (`params`). Some servers hang or return 414. Always use the request body (`data` or `json`).
 - **API Efficiency Opportunity** (2026-02-01): The Checkvist API supports `?with_notes=true&with_tags=true` parameters to fetch task metadata in a single call. Using these parameters can reduce API calls by 60% and simplify error handling (1 call = 1 failure mode vs 3).
 - **Smart Syntax Limits in Import**: The `/import.json` endpoint supports priority (`!N`) and tags (`#tag`), but **NOT** due dates (`^date`) or assignments (`@user`). These must be set via `update_task` after import. Attempting to use them in import results in raw text.
+- **Hidden "Due View" Endpoint** (2026-02-02): While the official API documentation lacks a global "due tasks" filter, a hidden endpoint `/checklists/due.json` exists (discovered via browser network traffic inspection). It returns all tasks with a due date across all lists, which is much more efficient than client-side scanning.
 
 ### 2. Resource Lifecycle Management
 - **Persistent Clients & Timeouts**: Asynchronous clients like `httpx` must have explicit timeouts (e.g., 10s) and a forced shutdown hook (`aclose()`) to prevent resource leaks and "hanging" processes during testing or production.
