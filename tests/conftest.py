@@ -10,8 +10,8 @@ class StatefulMockClient:
             {"id": 999, "name": "Inbox", "public": False}
         ]
         self.tasks = [
-            {"id": 1, "content": "Latte", "list_id": 200, "status": 0, "parent_id": None},
-            {"id": 2, "content": "Setup API", "list_id": 100, "status": 0, "parent_id": None}
+            {"id": 1, "content": "Latte", "list_id": 200, "status": 0, "parent_id": None, "updated_at": "2026/01/01 12:00:00 +0000"},
+            {"id": 2, "content": "Setup API", "list_id": 100, "status": 0, "parent_id": None, "updated_at": "2026/01/01 12:00:00 +0000"}
         ]
         self.token = "mock_token"
         self._next_id = 1000
@@ -39,6 +39,7 @@ class StatefulMockClient:
         return new_tasks
 
     async def add_task(self, list_id, content, parent_id=None, position=None, parse=False):
+        from datetime import datetime
         new_task = {
             "id": self._get_next_id(),
             "content": content,
@@ -47,7 +48,8 @@ class StatefulMockClient:
             "parent_id": int(parent_id) if parent_id else None,
             "priority": 0,
             "tags": [],
-            "due_date": None
+            "due_date": None,
+            "updated_at": datetime.utcnow().strftime("%Y/%m/%dT%H:%M:%SZ")
         }
         self.tasks.append(new_task)
         return new_task

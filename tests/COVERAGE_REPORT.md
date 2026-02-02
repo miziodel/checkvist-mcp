@@ -8,7 +8,7 @@ status: active
 Date: 2026-01-31
 
 ## Summary
-Execution of `pytest tests` passed (60/60 tests). The suite now includes `tests/test_bug_report_verified.py` and consolidated `update_task` logic, providing 100% verification for all project scenarios.
+Execution of `pytest tests` passed (72/72 tests). The suite now includes `tests/test_weekly_review.py` (integrated into scenarios) and `weekly_review` logic, providing 100% verification for all project scenarios including the new Performance Benchmarks.
 
 | Scenario ID | Name                  | Implemented? | Tested? | Status               |
 | ----------- | --------------------- | ------------ | ------- | -------------------- |
@@ -45,6 +45,8 @@ Execution of `pytest tests` passed (60/60 tests). The suite now includes `tests/
 | PROC-004    | Periodic Review       | ✅           | ✅      | Covered              |
 | PROC-005    | Cycle Migration       | ✅           | ✅      | Covered              |
 | PROC-006    | Template Verification | ✅           | ✅      | Covered              |
+| PROC-009    | Weekly Review         | ✅           | ✅      | Covered              |
+| PERF-001    | Performance Benchmark | ✅           | ✅      | Covered              |
 | SAFE-001    | Logical Deletion      | ✅           | ✅      | Covered              |
 | SAFE-002    | Injection Delimiters  | ✅           | ✅      | Covered              |
 | SAFE-003    | Rate Limit Warning    | ✅           | ✅      | Covered              |

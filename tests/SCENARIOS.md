@@ -309,6 +309,17 @@ When the Agent calls `apply_template`
 Then it returns a clear error message instead of reporting "Template applied".
 ```
 
+### PROC-009: Weekly Review Assistant
+*Vision Match: GTD / Periodic Review*
+```gherkin
+When the Agent calls `weekly_review()`
+Then it performs a cross-checklist analysis and returns a Markdown report including:
+- Recent Wins (Completed tasks in last 7 days)
+- Stale Tasks (Open tasks with no updates in 14+ days)
+- Blocked Items (Tasks tagged with #blocked or #waiting)
+- Architecture Insights (Proactive suggestions)
+```
+
 ---
 ## 🛡️ Phase 6: Risk Mitigation & Safety (SAFE)
 *Goal: Ensure data integrity and system robustness.*
@@ -359,6 +370,19 @@ Given an active MCP server or verification script
 When the process finishes or encounters an error
 Then all HTTP client connections are explicitly closed via a shutdown hook
 And no background hanging processes remain.
+```
+
+---
+## 🏎️ Phase 7: Performance & Velocity (PERF)
+*Goal: Ensure the AI remains faster than manual keyboard-first usage.*
+
+### PERF-001: Rapid Triage Benchmark
+*Vision Match: Keyboard-First / Respect Flow*
+```gherkin
+Given 10 tasks in "Inbox"
+When the Agent performs triage (search, categorize, move)
+Then the total operation time is < 30 seconds.
+And no manual clicks/mouse movements were required.
 ```
 
 ---

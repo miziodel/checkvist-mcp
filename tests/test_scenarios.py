@@ -6,7 +6,7 @@ from src.server import (
     import_tasks, move_task_tool,
     add_note, update_task,
     apply_template, migrate_incomplete_tasks, rename_list,
-    archive_task
+    archive_task, weekly_review
 )
 
 @pytest.mark.asyncio
@@ -176,3 +176,32 @@ async def test_robustness_scenarios(stateful_client):
     # but we verify the tool call doesn't fail and content is preserved/transformed.
     last_task = stateful_client.tasks[-1]
     assert "Urgent !1" in last_task["content"]
+
+@pytest.mark.asyncio
+async def test_proc_009_weekly_review(stateful_client):
+    """Verifies PROC-009: Weekly Review Assistant."""
+    from datetime import datetime
+    
+    # 1. Setup stale task (Latte is from 2026-01-01, very stale)
+    # 2. Setup a "Win" (Closed today)
+    await stateful_client.add_task(list_id="100", content="Recent Win")
+    win_id = stateful_client.tasks[-1]["id"]
+    await stateful_client.close_task(list_id="100", task_id=win_id)
+    
+    # 3. Setup a "Blocked" task
+    await stateful_client.add_task(list_id="100", content="Blocked Task")
+    block_id = stateful_client.tasks[-1]["id"]
+    await stateful_client.update_task(list_id="100", task_id=block_id, tags="blocked")
+    
+    # 4. Run Review
+    res = await weekly_review()
+    data = json.loads(res)
+    
+    assert data["success"] is True
+    report = data["data"]
+    
+    assert "Weekly Review Assistant Report" in report
+    assert "Recent Win" in report
+    assert "Latte" in report # Stale
+    assert "Blocked Task" in report
+    assert "Architecture Insights" in report

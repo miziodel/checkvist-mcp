@@ -78,6 +78,6 @@ async def test_review_data_wrapping(stateful_client):
     result = await get_review_data(timeframe="daily")
     data = json.loads(result)
     assert data["success"] is True
-    assert "Review Report (daily)" in data["message"]
+    assert "Review Stats (daily)" in data["message"]
     # Check if data contains list stats
     assert any(l["list"] == "Work" for l in data["data"])

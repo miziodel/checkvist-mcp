@@ -55,3 +55,19 @@ async def test_scenario_bulk_import_then_search(stateful_client):
     result = await search_tasks(query="B")
     assert "B" in result
 ```
+
+---
+
+## 🏎️ 4. Performance Benchmarks (PERF)
+**Goal**: Ensure speed-of-thought orchestration.
+**Mapping**: `PERF-*`.
+
+### Criterion 1: Triage Throughput
+- **Test**: Triage of 10 items from Inbox to specific projects.
+- **Goal**: Total execution time < 30 seconds (including LLM planning + tool calls).
+- **Reasoning**: Manual keyboard speed for 10 moves in Checkvist is approx 30-40 seconds. The AI MUST be faster or equal to be valuable.
+
+### Criterion 2: Tree Scalability
+- **Test**: Depth-2 fetch of a list with 100+ tasks.
+- **Goal**: Response latency < 5 seconds.
+- **Reasoning**: LLMs have short attention spans (context windows and timeouts). Large payloads must be served rapidly.

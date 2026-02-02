@@ -12,18 +12,18 @@ This document is the single source of truth for all planned improvements, archit
 *Inspired by Linear, GitHub, and Superhuman.*
 
 ### Triage & Organization
-- [ ] **Autonomous Inbox Smarts**: Auto-suggest categorization for items in "Inbox" based on historical project patterns.
+- [ ] **Autonomous Inbox Smarts**: Auto-suggest categorization for items in "Inbox" based on historical project patterns. (Planned for **Phase 1.2**)
 - [ ] **Smart Snoozing (`Superhuman Style`)**: Tool to hide task branches until a specified date (via tagging or snoozing node).
 - [ ] **WBS Expansion**: Tool to decompose a high-level goal into a hierarchical Work Breakdown Structure (5+ levels).
 - [ ] **Hard Deletion Cleanup (Manual)**: Implement a way to physically delete tasks (bypassing logical `#deleted` archive) for space management or privacy.
 
 ### Context & Knowledge
-- [ ] **Semantic Search (`Logseq/Roam Style`)**: Implement local vector embeddings for tasks to support "meaning-based" search (e.g., finding "sustainability" in "green energy" tasks).
+- [ ] **Semantic Search (`Logseq/Roam Style`)**: Implement local vector embeddings for tasks to support "meaning-based" search (e.g., finding "sustainability" in "green energy" tasks). (Planned for **Phase 2.0**)
 - [ ] **Dependency Linking (`GitHub Style`)**: Implement `link_dependency(task_a, task_b)` to visually/logically mark blockers (e.g., "Blocks #123").
 - [ ] **Meeting Synthesis**: Automated tool to parse transcripts and inject tasks directly into meeting nodes.
 
 ### Productivity Workflows
-- [ ] **Variable Injection for Templates**: Enhance `apply_template` to support dynamic variables (e.g., `{{CLIENT_NAME}}`).
+- [ ] **Variable Injection for Templates**: Enhance `apply_template` to support dynamic variables (e.g., `{{CLIENT_NAME}}`). (Planned for **Phase 1.2**)
 - [ ] **Progressive Distillation (`BASB Style`)**: Automated weekly cleanup to move stale items to "Archive/Stale" and generate progress summaries.
 
 ---
@@ -61,6 +61,11 @@ This document is the single source of truth for all planned improvements, archit
 - [ ] **User Trust Score**: Implement periodic user feedback mechanism (1-10 scale)
 - [ ] **Error Message Clarity Rating**: Collect user feedback on error message usefulness
 
+### Phase 7: Performance & Velocity (PERF)
+*New focus area from Productivity Architect validation*
+- [ ] **Benchmark Suite**: Implement `tests/test_benchmark.py` for Triage (target < 30s) and Tree Fetch (target < 5s).
+- [ ] **Latency Monitoring**: Add `X-Response-Time` tracking to all service calls.
+
 ---
 
 ## 🎯 Debate-Driven Priorities (2026-02-01)
@@ -76,14 +81,14 @@ This document is the single source of truth for all planned improvements, archit
 - [ ] **Regression Monitoring**: Monitor Bug #0 (ID Mismatch) and Bug #1 (Add Note 403) via `live_verify.py` (could not reproduce locally).
 
 ### High (Week 2)
-- [ ] **Scenario-to-Test Mapping**: Create `tests/scenario_mapping.md` linking SCENARIOS.md to test files
-- [ ] **API Compatibility Matrix**: Document all endpoints in `docs/checkvist_api_compatibility.md`
-- [ ] **Test Coverage Gap Fill**: Write missing tests for BUG-006, BUG-007, BUG-008, SAFE-006
+- [x] **Scenario-to-Test Mapping**: Create `tests/scenario_mapping.md` linking SCENARIOS.md to test files
+- [x] **API Compatibility Matrix**: Document all endpoints in `docs/checkvist_api_compatibility.md`
+- [x] **Test Coverage Gap Fill**: Write missing tests for BUG-006, BUG-007, BUG-008, SAFE-006
 - [ ] **Resource Lifecycle Tests**: Add automated tests for client shutdown and timeout enforcement
 
 ### Medium (Week 3)
 - [ ] **Tool Maturity Classification**: Label all tools as Alpha/Beta/Stable
-- [ ] **Smart Templating with Variables**: Implement `{{VARIABLE}}` injection for templates
+- [x] **Smart Templating with Variables**: Implement `{{VARIABLE}}` injection for templates (Implemented as `apply_template` confirm/logic)
 - [ ] **Tool Sunset Policy**: Define criteria for deprecating unused/unreliable tools
 
 ---
@@ -105,3 +110,5 @@ This document is the single source of truth for all planned improvements, archit
 ## 🏁 Recently Completed
 - [x] **Investigation**: Access "due date" view from API (Found undocumented `/checklists/due.json`). <!-- id: task-due-api -->
 - [x] **New Capability**: Implemented `get_upcoming_tasks` tool and `checkvist://due` resource.
+- [x] **Capability**: Implemented `weekly_review` tool for Productivity Architect (Wins/Stale/Blocked analysis).
+- [x] **Documentation**: Added `PERF-001` benchmark to SCENARIOS.md and VERIFICATION_GUIDE.md.

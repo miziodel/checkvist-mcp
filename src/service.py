@@ -177,3 +177,87 @@ class CheckvistService:
                 roots.append(task_map[t['id']])
                 
         return roots
+
+    async def get_weekly_summary(self) -> str:
+        """
+        Analyze tasks across checklists to generate a Productivity Architect's weekly report.
+        Identifies wins (completed last 7d) and stale tasks (open, 14d+ no update).
+        """
+        from datetime import datetime, timedelta
+        
+        client = await self._get_authed_client()
+        checklists = await self.get_checklists()
+        
+        now = datetime.utcnow()
+        last_week = now - timedelta(days=7)
+        stale_threshold = now - timedelta(days=14)
+        
+        wins = []
+        stale = []
+        blocked = []
+        
+        # Process top 10 checklists to avoid timeout/rate limits
+        for cl in checklists[:10]:
+            await asyncio.sleep(0.05)
+            try:
+                tasks = await client.get_tasks(cl["id"])
+                for t in tasks:
+                    if "deleted" in t.get('tags', []): continue
+                    
+                    # 1. Capture Wins (Closed recently)
+                    # Checkvist field is usually updated_at or status_changed_at
+                    # We'll use updated_at since status change updates it
+                    update_str = t.get('updated_at')
+                    if not update_str: continue
+                    
+                    try:
+                        updated_dt = datetime.strptime(update_str, "%Y/%m/%dT%H:%M:%SZ")
+                    except ValueError:
+                        try:
+                            # Handle hyphenated ISO format used in mocks/some contexts
+                            updated_dt = datetime.strptime(update_str, "%Y-%m-%dT%H:%M:%SZ")
+                        except ValueError:
+                            try:
+                                updated_dt = datetime.strptime(update_str, "%Y/%m/%d %H:%M:%S +0000")
+                            except: continue
+
+                    if t.get('status', 0) == 1: # Closed
+                        if updated_dt >= last_week:
+                            wins.append(f"- {t['content']} (in **{cl['name']}**)")
+                    else: # Open
+                        # 2. Identify Stale Tasks
+                        if updated_dt < stale_threshold:
+                            stale.append(f"- {t['content']} (in **{cl['name']}**, last update: {updated_dt.strftime('%b %d')})")
+                        
+                        # 3. Identify Blocked (Has tag #blocked or similar)
+                        tags = t.get('tags', [])
+                        tag_list = tags if isinstance(tags, list) else list(tags.keys()) if isinstance(tags, dict) else []
+                        if any(kw in str(tag).lower() for tag in tag_list for kw in ["blocked", "waiting"]):
+                            blocked.append(f"- {t['content']} (in **{cl['name']}**, tag: {tag_list})")
+                            
+            except Exception as e:
+                logger.error(f"Summary failed for list {cl['id']}: {e}")
+
+        # Build Markdown Report
+        report = ["# 📊 Weekly Review Assistant Report"]
+        report.append(f"Period: {last_week.strftime('%Y-%m-%d')} to {now.strftime('%Y-%m-%d')}")
+        
+        report.append("\n## 🏆 Recent Wins (Last 7 Days)")
+        if wins: report.extend(wins[:15]) # Limit to top 15
+        else: report.append("_No tasks completed recently. Time to refocus?_")
+        
+        report.append("\n## ⚠️ Stale Tasks (No updates for 14+ Days)")
+        if stale: report.extend(stale[:10])
+        else: report.append("_All open tasks have been touched recently. Great maintenance!_")
+        
+        report.append("\n## 🛑 Blocked / Waiting")
+        if blocked: report.extend(blocked[:10])
+        else: report.append("_No tasks marked as blocked._")
+        
+        report.append("\n## 💡 Architecture Insights")
+        if not wins and stale:
+            report.append("- **Focus Alert**: You have many stale tasks and zero wins. Consider a 'De-cluttering' session.")
+        elif len(wins) > 10:
+            report.append("- **Velocity High**: You're on a roll. Don't forget to celebrate your wins!")
+        
+        return "\n".join(report)

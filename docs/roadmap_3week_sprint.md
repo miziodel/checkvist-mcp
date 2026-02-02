@@ -1,7 +1,7 @@
 ---
-version: 1.0.0
-last_modified: 2026-02-01
-status: active
+version: 1.0.1
+last_modified: 2026-02-02
+status: ACTIVE (Executing Phase 1.1)
 source: Multi-Persona Strategic Debate (2026-02-01)
 ---
 
@@ -32,11 +32,11 @@ source: Multi-Persona Strategic Debate (2026-02-01)
 
 **Priority**: 🔴 CRITICAL
 
-- [ ] Audit all `client.py` methods for missing `with_notes`, `with_tags` parameters
-- [ ] Refactor `get_task()` to use `?with_notes=true&with_tags=true`
-- [ ] Measure API call reduction (target: 60% fewer calls)
-- [ ] Fix `archive_task` using consolidated API response
-- [ ] Fix `apply_template` hierarchy preservation
+- [x] Audit all `client.py` methods for missing `with_notes`, `with_tags` parameters
+- [x] Refactor `get_task()` to use `?with_notes=true&with_tags=true`
+- [x] Measure API call reduction (target: 60% fewer calls)
+- [x] Fix `archive_task` using consolidated API response
+- [x] Fix `apply_template` hierarchy preservation
 
 **Success Criteria**:
 - `archive_task` passes test with notes, tags, and 3-level hierarchy
@@ -52,18 +52,10 @@ source: Multi-Persona Strategic Debate (2026-02-01)
 **Owner**: Final User + QA Analyst  
 **Priority**: 🔴 CRITICAL
 
-- [ ] Audit all 20+ tools for error message quality
-- [ ] Implement standardized response format:
-  ```python
-  {
-    "success": bool,
-    "message": "Human-readable description",
-    "action": "What was attempted",
-    "next_steps": "What user should do next"
-  }
-  ```
-- [ ] Add validation layer in `server.py` to catch common errors before API call
-- [ ] Update tool docstrings with failure scenarios
+- [x] Audit all 20+ tools for error message quality
+- [x] Implement standardized response format
+- [x] Add validation layer in `server.py` to catch common errors before API call
+- [x] Update tool docstrings with failure scenarios
 
 **Success Criteria**:
 - Every tool returns actionable error message on failure
@@ -81,14 +73,10 @@ source: Multi-Persona Strategic Debate (2026-02-01)
 
 **Priority**: 🟠 HIGH
 
-- [ ] Create `tests/scenario_mapping.md` linking each SCENARIOS.md item to test file
-- [ ] Identify gaps (scenarios without tests)
-- [ ] Write missing tests for:
-  - BUG-006 (archive_task list-wrapped response)
-  - BUG-007 (template hierarchy preservation)
-  - BUG-008 (reopen_task list-wrapped response)
-  - SAFE-006 (resource lifecycle management)
-- [ ] Update `COVERAGE_REPORT.md` with completion percentage
+- [x] Create `tests/scenario_mapping.md` linking each SCENARIOS.md item to test file
+- [x] Identify gaps (scenarios without tests)
+- [x] Write missing tests for BUG-006, BUG-007, BUG-008, SAFE-006
+- [x] Update `COVERAGE_REPORT.md` with completion percentage
 
 **Success Criteria**:
 - 90%+ of scenarios have corresponding automated tests

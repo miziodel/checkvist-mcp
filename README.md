@@ -1,6 +1,6 @@
 ---
-version: 1.2.0
-last_modified: 2026-02-01
+version: 1.3.1
+last_modified: 2026-02-02
 status: active
 ---
 
@@ -80,6 +80,8 @@ See the **[Client Setup Guide](docs/client_setup.md)** for a ready-to-use JSON s
 | **Add Task**              | ✅ Ready | Smart Parse & Tagging.                                                                                 |
 | **Smart Triage**          | ✅ Ready | Hierarchy-aware movement.                                                                              |
 | **Tree View**             | ✅ Ready | Deep exploration & Metadata.                                                                           |
+| **Agenda Tool**           | ✅ Ready | Unified view across all lists for tasks due Today, Tomorrow, or Overdue (`get_upcoming_tasks`).      |
+| **Weekly Review**         | ✅ Ready | Strategic summary of wins, stale tasks, and blocked items for the "Productivity Architect".            |
 | **Maintenance**           | ✅ Ready | Recursive Logical Archiving (#deleted tag), Smart Syntax normalization (!! -> !), Robust Tag Handling. |
 
 ## 🛡️ "Choice Architecture" & Safety

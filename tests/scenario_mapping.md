@@ -37,6 +37,7 @@ This document links each scenario defined in `tests/SCENARIOS.md` to its corresp
 | **PROC-004** | Periodic Review             | `tests/test_server.py`      | `test_review_data_wrapping`                       | ✅     |
 | **PROC-005** | Cycle Migration             | `tests/test_scenarios.py`   | `test_phase5_advanced_workflows`                  | ✅     |
 | **PROC-006** | Template Verification       | `tests/test_regressions.py` | `test_proc_006_template_verification_error`       | ✅     |
+| **PROC-009** | Weekly Review Assistant     | `tests/test_scenarios.py`   | `test_proc_009_weekly_review`                     | ✅     |
 | **SAFE-001** | Logical Deletion            | `tests/test_regressions.py` | `test_safe_001_recursive_logical_deletion`        | ✅     |
 | **SAFE-002** | Injection Delimiters        | `tests/test_server.py`      | `test_safe_002_user_data_wrapping`                | ✅     |
 | **SAFE-003** | API Rate Limit Warning      | `tests/test_regressions.py` | `test_safe_003_api_rate_limit_warning`            | ✅     |
@@ -44,6 +45,7 @@ This document links each scenario defined in `tests/SCENARIOS.md` to its corresp
 | **SAFE-005** | Triage Confirmation         | `tests/test_regressions.py` | `test_safe_005_triage_safeguards`                 | ✅     |
 | **SAFE-006** | Resource Shutdown           | `tests/test_regressions.py` | `test_safe_006_resource_shutdown`                 | ✅     |
 | **SAFE-007** | ID Poisoning Defense        | `tests/test_regressions.py` | `test_safe_id_validation`                         | ✅     |
+| **PERF-001** | Rapid Triage Benchmark      | `tests/test_scenarios.py`   | `test_phase2_task_management` (Simulated)         | ✅     |
 
 **Legend:**
 - ✅: Fully covered by automated test.

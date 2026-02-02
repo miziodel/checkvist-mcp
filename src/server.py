@@ -591,8 +591,9 @@ async def apply_template(template_list_id: str, target_list_id: str, confirmed: 
 
 @mcp.tool()
 async def get_review_data(timeframe: str = "weekly") -> str:
-    """ Get statistics about completed vs open tasks to help with periodic review. 
-        Returns: JSON string with keys 'success', 'message', 'data' (statistics list).
+    """ 
+    Get raw statistics about completed vs open tasks for a quick dashboard.
+    For a detailed analysis with stale/blocked tasks, use 'weekly_review' tool.
     """
     try:
         c = get_client()
@@ -609,14 +610,36 @@ async def get_review_data(timeframe: str = "weekly") -> str:
             
         rate_warning = check_rate_limit()
         return StandardResponse.success(
-            message=f"Review Report ({timeframe}){rate_warning}",
+            message=f"Review Stats ({timeframe}){rate_warning}",
             data=stats
         )
     except Exception as e:
         return StandardResponse.error(
             message="Failed to gather review data",
             action="get_review_data",
-            next_steps="Check network connection.",
+            error_details=str(e)
+        )
+
+@mcp.tool()
+async def weekly_review() -> str:
+    """
+    Perform a detailed strategic weekly review across all checklists.
+    Identifies 'Recent Wins', 'Stale Tasks' (14d+), and 'Blocked Items'.
+    Generates a Markdown report tailored for the 'Productivity Architect'.
+    """
+    try:
+        s = get_service()
+        report = await s.get_weekly_summary()
+        rate_warning = check_rate_limit()
+        return StandardResponse.success(
+            message=f"Weekly Review completed successfully.{rate_warning}",
+            data=report
+        )
+    except Exception as e:
+        return StandardResponse.error(
+            message="Weekly Review failed",
+            action="weekly_review",
+            next_steps="Verify API connection and try again.",
             error_details=str(e)
         )
 
