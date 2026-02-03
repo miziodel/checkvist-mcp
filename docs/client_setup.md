@@ -79,3 +79,21 @@ A partire dalla versione **1.2.0**, tutti i tool restituiscono risposte struttur
 ```
 
 Questo formato permette a Antigravity (o altri client) di reagire correttamente ai fallimenti invece di ricevere messaggi di testo ambigui.
+
+## 🧠 Protocollo "Operative Intelligence" (Novità v1.4)
+
+Per sfruttare le nuove capacità di ricerca ad alta risoluzione, suggeriamo di fornire al tuo Agent il seguente **System Prompt** o istruzioni d'uso:
+
+### Guida per l'Agente
+
+1.  **Cerca Prima, Leggi Dopo**: Usa sempre `search_tasks(query)` come primo passo.
+2.  **Interpreta gli Indicatori**:
+    *   `[N]`: Significa che ci sono **Note**. È probabile che qui ci siano le specifiche tecniche o i dettagli. -> **Azione**: `get_task(task_id)`.
+    *   `[C]`: Significa che ci sono **Commenti**. Utile per capire lo storico o le discussioni. -> **Azione**: `get_task(task_id)`.
+    *   `[F: 5]`: Significa che ci sono **5 Figli**. È un task "contenitore". -> **Azione**: `get_task(task_id, include_children=True)` per esplorare la struttura.
+3.  **Non Indovinare**: Se la ricerca restituisce un task come `Progetto Alpha > Backend > Auth`, non chiedere "Cos'è il progetto Alpha?". Hai già il contesto nel breadcrumb.
+
+### Esempi di Prompt Utente
+
+*   **Drill-Down**: "Cerca 'Auth' e dammi i dettagli tecnici del task che sembra contenere le specifiche." (L'agent cercherà 'Auth', vedrà `[N]` vicino a 'Specs', e chiamerà `get_task`).
+*   **Esplorazione**: "Fammi vedere come è strutturato il lavoro sul 'Backend'." (L'agent cercherà 'Backend', vedrà `[F: 12]`, e chiamerà `get_task(..., include_children=True)`).

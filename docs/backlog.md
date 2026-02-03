@@ -13,6 +13,7 @@ This document is the single source of truth for all planned improvements, archit
 
 ### Triage & Organization
 - [ ] **Autonomous Inbox Smarts**: Auto-suggest categorization for items in "Inbox" based on historical project patterns. (Planned for **Phase 1.2**)
+- [ ] **Hierarchical Search (`search_tasks_enriched`)**: Return task breadcrumbs to solve "Hierarchical Blindness". (Planned for **Phase 1.1 / Week 1**)
 - [ ] **Smart Snoozing (`Superhuman Style`)**: Tool to hide task branches until a specified date (via tagging or snoozing node).
 - [ ] **WBS Expansion**: Tool to decompose a high-level goal into a hierarchical Work Breakdown Structure (5+ levels).
 - [ ] **Hard Deletion Cleanup (Manual)**: Implement a way to physically delete tasks (bypassing logical `#deleted` archive) for space management or privacy.
@@ -33,7 +34,7 @@ This document is the single source of truth for all planned improvements, archit
 - [ ] **Strict Type Safety (Mypy)**: Reach 100% type hint coverage in `client.py` and enforce in CI.
 - [ ] **Enhanced API Authentication**: Upgrade the authentication mechanism to be more robust (e.g., token rotation, OAuth support if applicable, or better secret management).
 - [ ] **Centralized ID Coercion**: Move `int()` casting from `server.py` to `CheckvistService` for cleaner tool handlers.
-- [ ] **Lazy Tree Fetching**: Optimize `get_tree` for extremely large checklists by fetching sub-branches on-demand.
+- [ ] **Lazy Tree Fetching**: Optimize `get_tree` for extremely large checklists by fetching sub-branches on-demand. (Moved to **Phase 1.1 / Week 2**)
 - [ ] **Recursive Code Quality Review**: Establish a periodic automated or semi-automated pipeline/checklist to audit code sanity, performance, and best practices.
 
 ---

@@ -47,14 +47,20 @@ class CheckvistService:
         query_lower = query.lower()
         
         # Step 1: Efficient fetching (N lists)
-        # We process in parallel with a concurrency limit if needed, but for now linear with 0.1s sleep as per client
         for cl in lists:
-            await asyncio.sleep(0.05) # reduced sleep for service layer
+            await asyncio.sleep(0.05) 
             try:
                 tasks = await client.get_tasks(cl["id"])
                 
                 # Step 2: Build local map for breadcrumbs within this list
                 task_map = {t["id"]: t for t in tasks}
+                
+                # Pre-calculate children count
+                children_map = {}
+                for t in tasks:
+                    pid = t.get("parent_id")
+                    if pid:
+                        children_map[pid] = children_map.get(pid, 0) + 1
                 
                 for task in tasks:
                     # Search in content OR tags (Fix BUG-005) OR ID exact match
@@ -66,6 +72,18 @@ class CheckvistService:
                     tag_match = any(query_lower in str(tag).lower() for tag in tag_list)
                     
                     if content_match or tag_match or id_match:
+                        # Add indicators
+                        notes_count = task.get("notes_count", 0)
+                        comments_count = task.get("comments_count", 0)
+                        child_count = children_map.get(task["id"], 0)
+                        
+                        indicators = []
+                        if notes_count > 0: indicators.append("[N]")
+                        if comments_count > 0: indicators.append("[C]")
+                        if child_count > 0: indicators.append(f"[F: {child_count}]")
+                        
+                        ind_str = " ".join(indicators) + " " if indicators else ""
+                        
                         # Add decorators for search result strings
                         meta = []
                         priority = task.get('priority')
@@ -78,13 +96,65 @@ class CheckvistService:
                         meta_str = " " + " ".join(meta) if meta else ""
                         task["list_name"] = cl["name"]
                         task["list_id"] = cl["id"]
+                        task["has_notes"] = notes_count > 0
+                        task["has_comments"] = comments_count > 0
+                        task["child_count"] = child_count
+                        
                         breadcrumb = self._build_breadcrumb_from_map(task["id"], task_map)
-                        task["breadcrumb"] = f"{breadcrumb}{meta_str}"
+                        task["breadcrumb"] = f"{ind_str}{breadcrumb}{meta_str}"
                         all_matches.append(task)
             except Exception as e:
                 logger.error(f"Search failed for list {cl['id']}: {e}")
                 
-        return all_matches[:20]
+        return all_matches[:10] # Cap to 10 context-rich results for better focus
+
+    async def get_task_enriched(self, list_id: int, task_id: int, include_children: bool = False, depth: int = 2) -> Dict[str, Any]:
+        """Fetch task details including notes, comments, and optional child tree."""
+        client = await self._get_authed_client()
+        task = await client.get_task(list_id, task_id)
+        
+        # Polymorphic handling: API might return a list [task] or dict
+        if isinstance(task, list):
+            if not task:
+                raise ValueError(f"Task {task_id} not found (empty response)")
+            task = task[0]
+            
+        if not isinstance(task, dict):
+             raise ValueError(f"Invalid task response format: {type(task)}")
+        
+        # Build breadcrumbs (requires list context)
+        all_tasks = await client.get_tasks(list_id)
+        task_map = {t['id']: t for t in all_tasks}
+        breadcrumb = self._build_breadcrumb_from_map(task_id, task_map)
+        
+        # Prepare result
+        result = {
+            "task": task,
+            "breadcrumb": breadcrumb,
+            "notes": task.get("notes", ""),
+            "comments": task.get("comments", []),
+            "children_tree": None
+        }
+        
+        if include_children:
+            # Build hierarchy for the branch
+            task_nodes = {t['id']: {'data': t, 'children': []} for t in all_tasks}
+            for t in all_tasks:
+                pid = t.get('parent_id')
+                if pid and pid in task_nodes:
+                    task_nodes[pid]['children'].append(task_nodes[t['id']])
+            
+            if task_id in task_nodes:
+                def truncate_tree(node, current_depth):
+                    if current_depth >= depth:
+                        return {"data": node['data'], "children": [], "truncated": True}
+                    return {
+                        "data": node['data'],
+                        "children": [truncate_tree(c, current_depth + 1) for c in node['children']]
+                    }
+                result["children_tree"] = truncate_tree(task_nodes[task_id], 0)
+                
+        return result
 
     def _build_breadcrumb_from_map(self, task_id: int, task_map: Dict[int, Any]) -> str:
         path = []

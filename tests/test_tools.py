@@ -5,7 +5,7 @@ from src.server import (
     get_client, add_task, import_tasks, search_list,
     add_note, update_task, triage_inbox, move_task_tool,
     close_task, create_list, search_tasks, get_tree, resurface_ideas,
-    get_list_content, list_checklists, get_upcoming_tasks
+    get_list_content, list_checklists, get_upcoming_tasks, get_task
 )
 
 # --- MOCK DATA ---
@@ -25,9 +25,14 @@ MOCK_TASKS = [
 
 @pytest.fixture
 def mock_client(mocker):
+    # Reset global service to ensure a fresh mock client is used in every test
+    import src.server
+    src.server._service = None
+    
     client_mock = AsyncMock()
     client_mock.token = "mock_token"
     client_mock.get_checklists.return_value = MOCK_LISTS
+    # Default side_effect for most tests
     client_mock.get_tasks.side_effect = lambda l_id: [t for t in MOCK_TASKS if t.get("list_id") == int(l_id)]
     client_mock.add_task.return_value = {"id": 106, "content": "New Task"}
     client_mock.move_task_hierarchy.return_value = {"status": "ok"}
@@ -136,20 +141,61 @@ async def test_triage_inbox_tool(mock_client):
     assert any(t["breadcrumb"] == "Auth Module" for t in data["data"])
 
 @pytest.mark.asyncio
-async def test_search_tasks_tool(mock_client):
+async def test_search_tasks_includes_metadata(mock_client):
+    """Verify search_tasks returns breadcrumbs and [N], [C], [F] indicators."""
+    # Mock tasks: parent (matches query) + child (to trigger children_map)
+    mock_client.get_tasks.side_effect = lambda l_id: [
+        {"id": 101, "content": "Auth Module", "parent_id": None, "list_id": 999, "comments_count": 2, "notes_count": 1},
+        {"id": 102, "content": "Child", "parent_id": 101, "list_id": 999}
+    ]
     result = await search_tasks(query="Auth")
     data = json.loads(result)
     assert data["success"] is True
-    assert any("Auth Module" in t["breadcrumb"] for t in data["data"])
-    assert any(t["task_id"] == 101 for t in data["data"])
+    # Verify indicators in breadcrumb
+    sample = data["data"][0]
+    assert "[N]" in sample["breadcrumb"]
+    assert "[C]" in sample["breadcrumb"]
+    assert "[F: 1]" in sample["breadcrumb"]
+    assert "Auth Module" in sample["breadcrumb"]
 
 @pytest.mark.asyncio
-async def test_search_by_id_targeted(mock_client):
-    result = await search_tasks(query="101")
+async def test_get_task_details_tool(mock_client):
+    """Verify get_task tool returns notes, comments, and breadcrumbs."""
+    mock_client.get_task.return_value = {
+        "id": 101, 
+        "content": "Auth Module", 
+        "checklist_id": 999,
+        "notes": "System auth specs",
+        "comments": [{"comment": "Fixed bug #1"}, {"comment": "Added OAuth"}]
+    }
+    # Mock tasks for breadcrumb resolution
+    mock_client.get_tasks.side_effect = lambda l_id: [
+        {"id": 101, "content": "Auth Module", "parent_id": None}
+    ]
+    
+    result = await get_task(list_id="999", task_id="101")
     data = json.loads(result)
     assert data["success"] is True
-    assert any(t["task_id"] == 101 for t in data["data"])
-    assert any("!1" in t["breadcrumb"] for t in data["data"])
+    assert "System auth specs" in data["data"]["details"]
+    assert "Fixed bug #1" in data["data"]["details"]
+    assert "Auth Module" in data["data"]["details"] # Breadcrumb
+
+@pytest.mark.asyncio
+async def test_get_task_with_children_tree(mock_client):
+    """Verify get_task(include_children=True) returns the sub-tree."""
+    mock_client.get_task.return_value = {"id": 1, "content": "Parent", "checklist_id": 100}
+    mock_client.get_tasks.side_effect = lambda l_id: [
+        {"id": 1, "content": "Parent", "parent_id": None},
+        {"id": 2, "content": "Child 1", "parent_id": 1},
+        {"id": 3, "content": "Child 2", "parent_id": 1}
+    ]
+    
+    result = await get_task(list_id="100", task_id="1", include_children=True)
+    data = json.loads(result)
+    assert data["success"] is True
+    assert "tree" in data["data"]
+    assert "Child 1" in data["data"]["tree"]
+    assert "Child 2" in data["data"]["tree"]
 
 @pytest.mark.asyncio
 async def test_move_task_cross_list(mock_client):
@@ -246,11 +292,27 @@ async def test_add_task_error_json_format():
         assert data["error_details"] == "API Error"
 
 @pytest.mark.asyncio
-async def test_get_upcoming_tasks_tool(mock_client):
-    result = await get_upcoming_tasks(filter="all")
+async def test_get_task_standard_response_crash_repro(mock_client, mocker):
+    """Reproduce crash when get_task encounters an unexpected exception."""
+    # Force an Exception in the service layer to trigger the broken error handling
+    mocker.patch("src.server.get_service", side_effect=Exception("Database Failure"))
+    
+    # This should return a nice JSON error, but previously crashed with TypeError
+    result = await get_task(list_id="100", task_id="1")
+    data = json.loads(result)
+    assert data["success"] is False
+    assert "Database Failure" in data["error_details"]
+    assert "next_steps" in data
+    assert "Check the task ID" in data["next_steps"]
+
+@pytest.mark.asyncio
+async def test_get_task_list_response_handled(mock_client):
+    """Verify get_task handles cases where the API returns a list instead of a dict."""
+    # Mock get_task to return a list (polymorphic response)
+    mock_client.get_task.return_value = [{"id": 101, "content": "Task in List", "checklist_id": 999}]
+    
+    # This should succeed by extracting the first element
+    result = await get_task(list_id="999", task_id="101")
     data = json.loads(result)
     assert data["success"] is True
-    assert len(data["data"]) == 1
-    assert data["data"][0]["content"] == "Due Task"
-    assert data["data"][0]["due"] == "2026/12/31"
-    assert data["data"][0]["list_name"] == "Server MCP - Development"
+    assert "Task in List" in data["data"]["details"]

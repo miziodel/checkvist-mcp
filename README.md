@@ -69,16 +69,18 @@ To use this server in **Antigravity**, you can add it directly via the **Setting
 
 See the **[Client Setup Guide](docs/client_setup.md)** for a ready-to-use JSON snippet and detailed instructions.
 
-## 🧩 Features (WIP)
+## 🧩 Features (Pro Suite)
 
 | Feature                   | Status   | Description                                                                                            |
 | :------------------------ | :------- | :----------------------------------------------------------------------------------------------------- |
+| **Operative Intelligence**| ✅ Ready | **High-Res Search**: Breadcrumbs + [N]otes, [C]omments, and [F]igli indicators for instant context.     |
+| **Drill-Down Tool**       | ✅ Ready | `get_task`: Unified fetch for notes, comments, and deep branch exploration (`include_children`).      |
 | **Auth**                  | ✅ Ready | Basic Auth via API Key.                                                                                |
 | **Standardized Feedback** | ✅ Ready | All tools return structured JSON with clear failure reasons and next steps.                            |
 | **Optimization**          | ✅ Ready | Smart Fetch (notes/tags in a single call) prevents N+1 latencies.                                      |
 | **Read Lists**            | ✅ Ready | Fetch list content (Flat).                                                                             |
 | **Add Task**              | ✅ Ready | Smart Parse & Tagging.                                                                                 |
-| **Smart Triage**          | ✅ Ready | Hierarchy-aware movement.                                                                              |
+| **Smart Triage**          | ✅ Ready | Hierarchy-aware movement and movement between checklists.                                              |
 | **Tree View**             | ✅ Ready | Deep exploration & Metadata.                                                                           |
 | **Agenda Tool**           | ✅ Ready | Unified view across all lists for tasks due Today, Tomorrow, or Overdue (`get_upcoming_tasks`).      |
 | **Weekly Review**         | ✅ Ready | Strategic summary of wins, stale tasks, and blocked items for the "Productivity Architect".            |

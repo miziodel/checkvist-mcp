@@ -298,11 +298,14 @@ async def search_tasks(query: str) -> str:
                 "breadcrumb": r['breadcrumb'],
                 "list_id": r['list_id'],
                 "list_name": r['list_name'],
-                "task_id": r['id']
+                "task_id": r['id'],
+                "has_notes": r.get('has_notes', False),
+                "has_comments": r.get('has_comments', False),
+                "child_count": r.get('child_count', 0)
             })
             
         return StandardResponse.success(
-            message=f"Found {len(visible_results)} matching tasks.{rate_warning}",
+            message=f"Found {len(visible_results)} matching tasks. Indicators: [N]=Notes, [C]=Comments, [F]=Figli.{rate_warning}",
             data=formatted_results
         )
     except Exception as e:
@@ -420,6 +423,66 @@ async def add_note(list_id: str, task_id: str, note: str) -> str:
             message="Failed to add note",
             action=f"add_note(task_id={task_id})",
             next_steps="Verify the task ID and your access rights.",
+            error_details=str(e)
+        )
+
+@mcp.tool()
+async def get_task(list_id: str, task_id: str, include_children: bool = False, depth: int = 2) -> str:
+    """ 
+    Get detailed information for a specific task including notes, comments, and breadcrumbs.
+    If include_children is True, returns the subtask tree up to the specified depth.
+    
+    Returns: JSON string with keys 'success', 'message', 'data' (details and optional tree).
+    """
+    try:
+        l_id = parse_id(list_id, "list")
+        t_id = parse_id(task_id, "task")
+        
+        s = get_service()
+        enriched = await s.get_task_enriched(l_id, t_id, include_children=include_children, depth=depth)
+        
+        task = enriched["task"]
+        details = f"Task: {task['content']}\n"
+        details += f"Path: {enriched['breadcrumb']}\n"
+        if enriched["notes"]:
+            details += f"Notes: {enriched['notes']}\n"
+        if enriched["comments"]:
+            details += "Comments:\n"
+            for c in enriched["comments"]:
+                details += f"- {c.get('comment', '')} (by {c.get('user_name', 'Unknown')})\n"
+        
+        response_data = {
+            "id": task["id"],
+            "details": details,
+            "has_notes": bool(enriched["notes"]),
+            "has_comments": bool(enriched["comments"])
+        }
+        
+        if enriched["children_tree"]:
+            def format_tree(node, level=0):
+                task_data = node['data']
+                res = "  " * level + f"- {task_data['content']} (ID: {task_data['id']})\n"
+                for child in node['children']:
+                    res += format_tree(child, level + 1)
+                return res
+            response_data["tree"] = format_tree(enriched["children_tree"])
+            
+        rate_warning = check_rate_limit()
+        return StandardResponse.success(
+            message=f"Fetched details for task {t_id}.{rate_warning}",
+            data=response_data
+        )
+    except ValueError as e:
+        return StandardResponse.error(
+            message=str(e), 
+            action="get_task", 
+            next_steps="Ensure IDs are numeric. Try searching for the task first to get the correct IDs."
+        )
+    except Exception as e:
+        return StandardResponse.error(
+            message="Failed to fetch task details",
+            action=f"get_task(task_id={task_id})",
+            next_steps="Check the task ID or verify your connection to Checkvist.",
             error_details=str(e)
         )
 
@@ -617,6 +680,7 @@ async def get_review_data(timeframe: str = "weekly") -> str:
         return StandardResponse.error(
             message="Failed to gather review data",
             action="get_review_data",
+            next_steps="Try again later or check your API connection.",
             error_details=str(e)
         )
 
