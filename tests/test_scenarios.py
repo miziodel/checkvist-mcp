@@ -6,8 +6,9 @@ from src.server import (
     import_tasks, move_task_tool,
     add_note, update_task,
     apply_template, migrate_incomplete_tasks, rename_list,
-    archive_task, weekly_review
+    archive_task, weekly_review, triage_inbox
 )
+from unittest.mock import AsyncMock, patch
 
 @pytest.mark.asyncio
 async def test_phase1_discovery(stateful_client):
@@ -78,7 +79,6 @@ async def test_phase3_bulk_operations(stateful_client):
     # Find one of the imported tasks
     task = next(t for t in stateful_client.tasks if t["content"] == "Subtask 1")
     await move_task_tool(list_id="100", task_id=str(task["id"]), target_list_id="200", confirmed=True)
-
     
     # Verify it moved
     spesa_content = await get_list_content(list_id="200")
@@ -180,7 +180,6 @@ async def test_robustness_scenarios(stateful_client):
 @pytest.mark.asyncio
 async def test_proc_009_weekly_review(stateful_client):
     """Verifies PROC-009: Weekly Review Assistant."""
-    from datetime import datetime
     
     # 1. Setup stale task (Latte is from 2026-01-01, very stale)
     # 2. Setup a "Win" (Closed today)
@@ -205,3 +204,80 @@ async def test_proc_009_weekly_review(stateful_client):
     assert "Latte" in report # Stale
     assert "Blocked Task" in report
     assert "Architecture Insights" in report
+
+# --- New Consolidated Tests for Triage & Templating ---
+
+@pytest.fixture
+def mock_client_specialized(mocker):
+    """Fixture for specialized logic (Templating & Triage) not covered by stateful client."""
+    import src.server
+    # Clear singleton to force mock injection
+    src.server._service = None
+    
+    client_mock = AsyncMock()
+    client_mock.token = "mock_token"
+    
+    # Mock Checklists (for Triage)
+    client_mock.get_checklists.return_value = [
+        {"id": 999, "name": "Inbox", "public": False},
+        {"id": 100, "name": "Engineering", "public": False},
+        {"id": 200, "name": "Marketing", "public": False}
+    ]
+    
+    # Complex Mock for get_tasks to handle both Triage (id 999) and Template (id 100)
+    # NOTE: In test calls, we use string IDs, so we handle that.
+    def get_tasks_side_effect(list_id):
+        lid = str(list_id)
+        if lid == "999": # Inbox
+            return [
+                {"id": 1, "content": "Fix critical bug in auth", "tags": [], "parent_id": None, "status": 0},
+                {"id": 2, "content": "Write blog post", "tags": [], "parent_id": None, "status": 0},
+                {"id": 3, "content": "Subtask of Bug", "tags": [], "parent_id": 1, "status": 0}, 
+            ]
+        elif lid == "100": # Template Source
+            return [
+                {"id": 101, "content": "Kickoff with {{CLIENT}}", "parent_id": None, "tags": [], "parent_id": 0},
+                {"id": 102, "content": "Send invoice to {{EMAIL}}", "parent_id": 101, "tags": [], "parent_id": 101}
+            ]
+        return []
+        
+    client_mock.get_tasks.side_effect = get_tasks_side_effect
+    client_mock.import_tasks.return_value = [{"id": 201, "content": "Kickoff with Acme"}]
+    
+    mocker.patch("src.server.get_client", return_value=client_mock)
+    return client_mock
+
+@pytest.mark.asyncio
+async def test_proc_003_templating_with_variables(mock_client_specialized):
+    """PROC-003: Verify smart templating with variable substitution."""
+    variables = {"CLIENT": "Acme Corp", "EMAIL": "billing@acme.com"}
+    
+    # Use "100" as template source (mocked above) and "200" as target
+    result = await apply_template(template_list_id="100", target_list_id="200", confirmed=True, variables=variables)
+    
+    data = json.loads(result)
+    assert data["success"] is True
+    
+    # Verify import content generated has substitutions
+    args, _ = mock_client_specialized.import_tasks.call_args
+    import_content = args[1]
+    
+    assert "Kickoff with Acme Corp" in import_content
+    # The simple replace check:
+    assert "Send invoice to billing@acme.com" in import_content
+
+@pytest.mark.asyncio
+async def test_proc_001_triage_heuristics(mock_client_specialized):
+    """PROC-001: Verify triage heuristics (Keyword Matching)."""
+    
+    result = await triage_inbox(inbox_name="Inbox", analyze=True) 
+    data = json.loads(result)
+    
+    assert data["success"] is True
+    
+    tasks = data["data"]
+    # We expect "Fix critical bug" to match "Engineering"
+    bug_task = next(t for t in tasks if "bug" in t["content"].lower())
+    
+    assert "suggestion" in bug_task, "Task missing triage suggestion"
+    assert bug_task["suggestion"]["target_list"] == "Engineering"

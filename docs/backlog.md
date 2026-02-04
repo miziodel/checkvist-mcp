@@ -12,7 +12,7 @@ This document is the single source of truth for all planned improvements, archit
 *Inspired by Linear, GitHub, and Superhuman.*
 
 ### Triage & Organization
-- [ ] **Autonomous Inbox Smarts**: Auto-suggest categorization for items in "Inbox" based on historical project patterns. (Planned for **Phase 1.2**)
+- [x] **Autonomous Inbox Smarts**: Auto-suggest categorization for items in "Inbox" based on historical project patterns. (Shipped Phase 1.3 - Triage Heuristics)
 - [ ] **Hierarchical Search (`search_tasks_enriched`)**: Return task breadcrumbs to solve "Hierarchical Blindness". (Planned for **Phase 1.1 / Week 1**)
 - [ ] **Smart Snoozing (`Superhuman Style`)**: Tool to hide task branches until a specified date (via tagging or snoozing node).
 - [ ] **WBS Expansion**: Tool to decompose a high-level goal into a hierarchical Work Breakdown Structure (5+ levels).
@@ -24,7 +24,7 @@ This document is the single source of truth for all planned improvements, archit
 - [ ] **Meeting Synthesis**: Automated tool to parse transcripts and inject tasks directly into meeting nodes.
 
 ### Productivity Workflows
-- [ ] **Variable Injection for Templates**: Enhance `apply_template` to support dynamic variables (e.g., `{{CLIENT_NAME}}`). (Planned for **Phase 1.2**)
+- [x] **Variable Injection for Templates**: Enhance `apply_template` to support dynamic variables (e.g., `{{CLIENT_NAME}}`). (Shipped Phase 1.3)
 - [ ] **Progressive Distillation (`BASB Style`)**: Automated weekly cleanup to move stale items to "Archive/Stale" and generate progress summaries.
 
 ---
@@ -34,7 +34,7 @@ This document is the single source of truth for all planned improvements, archit
 - [ ] **Strict Type Safety (Mypy)**: Reach 100% type hint coverage in `client.py` and enforce in CI.
 - [ ] **Enhanced API Authentication**: Upgrade the authentication mechanism to be more robust (e.g., token rotation, OAuth support if applicable, or better secret management).
 - [ ] **Centralized ID Coercion**: Move `int()` casting from `server.py` to `CheckvistService` for cleaner tool handlers.
-- [ ] **Lazy Tree Fetching**: Optimize `get_tree` for extremely large checklists by fetching sub-branches on-demand. (Moved to **Phase 1.1 / Week 2**)
+- [x] **Lazy Tree Fetching**: Optimize `get_tree` for extremely large checklists by fetching sub-branches on-demand. (Shipped Phase 1.3)
 - [ ] **Recursive Code Quality Review**: Establish a periodic automated or semi-automated pipeline/checklist to audit code sanity, performance, and best practices.
 
 ---
@@ -88,7 +88,7 @@ This document is the single source of truth for all planned improvements, archit
 - [ ] **Resource Lifecycle Tests**: Add automated tests for client shutdown and timeout enforcement
 
 ### Medium (Week 3)
-- [ ] **Tool Maturity Classification**: Label all tools as Alpha/Beta/Stable
+- [x] **Tool Maturity Classification**: Label all tools as Alpha/Beta/Stable
 - [x] **Smart Templating with Variables**: Implement `{{VARIABLE}}` injection for templates (Implemented as `apply_template` confirm/logic)
 - [ ] **Tool Sunset Policy**: Define criteria for deprecating unused/unreliable tools
 

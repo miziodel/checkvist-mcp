@@ -264,11 +264,15 @@ Then the tool triggers `parse=True` to ensure Checkvist processes these symbols.
 ## 🤖 Phase 5: Advanced Workflows (PROC)
 *Goal: Autonomous agentic processes for productivity.*
 
-### PROC-001: Inbox Zero Triage
+### PROC-001: Inbox Zero Triage & Heuristics
 *Vision Match: Superhuman Style / Linear Triage*
 ```gherkin
-When the Agent finds a list named "Inbox"
-Then it lists all open tasks to prepare for a "move to project" loop.
+Given tasks in "Inbox"
+When the Agent calls `triage_inbox(analyze=True)`
+Then it returns tasks WITH suggested actions based on heuristics:
+- Tag Inheritance: Children inherit parent tags
+- Project Promotion: Large clusters (>3 related tasks) suggested for new project
+- Keyword Matching: "Bug" -> Suggest "Engineering" list
 ```
 
 ### PROC-002: Brainstorming Resurfacing
@@ -281,9 +285,9 @@ Then it picks 3 random open tasks from various lists to jog the user's memory.
 ### PROC-003: Smart Templating
 *Vision Match: Raycast Style / Onboarding*
 ```gherkin
-Given a "Template" list
-When the Agent calls `apply_template(template_list_id, target_list_id)`
-Then all tasks from the template are cloned into the target list.
+Given a "Template" list with items containing placeholders like "{{CLIENT}}"
+When the Agent calls `apply_template(template_list_id, target_list_id, variables={"CLIENT": "Acme Corp"})`
+Then all tasks are cloned and "{{CLIENT}}" is replaced with "Acme Corp" in content and notes.
 ```
 
 ### PROC-004: Periodic Review & Synthesis

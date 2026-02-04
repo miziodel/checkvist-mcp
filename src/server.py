@@ -97,7 +97,7 @@ def parse_id(id_val: Any, name: str) -> int:
 
 @mcp.tool()
 async def search_list(query: str) -> str:
-    """ Search for a checklist by name (fuzzy match). 
+    """ [STABLE] Search for a checklist by name (fuzzy match). 
         Returns: JSON string with keys 'success', 'message', 'data' (list of matching lists).
     """
     try:
@@ -131,7 +131,7 @@ async def search_list(query: str) -> str:
 
 @mcp.resource("checkvist://lists")
 async def list_checklists() -> str:
-    """ Get all checklists as a formatted string. """
+    """ [STABLE] Get all checklists as a formatted string. """
     s = get_service()
     lists = await s.get_checklists()
     rate_warning = check_rate_limit()
@@ -141,7 +141,7 @@ async def list_checklists() -> str:
 
 @mcp.resource("checkvist://list/{list_id}")
 async def get_list_content(list_id: str) -> str:
-    """ Get the content of a specific checklist (flat list). 
+    """ [STABLE] Get the content of a specific checklist (flat list). 
         Use this for quick reference. For deep exploration of hierarchies, use get_tree tool.
     """
 
@@ -165,7 +165,7 @@ async def get_list_content(list_id: str) -> str:
 @mcp.tool()
 async def add_task(list_id: str, content: str, parent_id: str = None) -> str:
     """
-    Add one or more tasks to a checklist.
+    [STABLE] Add one or more tasks to a checklist.
     
     Smart Syntax Support:
     - #tag: Adds a tag and removes it from the task text.
@@ -222,7 +222,7 @@ async def add_task(list_id: str, content: str, parent_id: str = None) -> str:
 
 @mcp.tool()
 async def close_task(list_id: str, task_id: str) -> str:
-    """ Close a task. 
+    """ [STABLE] Close a task. 
         Returns: JSON string with keys 'success', 'message'.
     """
     try:
@@ -253,7 +253,7 @@ async def close_task(list_id: str, task_id: str) -> str:
 
 @mcp.tool()
 async def create_list(name: str, public: bool = False) -> str:
-    """ Create a new checklist. 
+    """ [STABLE] Create a new checklist. 
         Returns: JSON string with keys 'success', 'message', 'data' (created list info).
     """
     try:
@@ -276,7 +276,7 @@ async def create_list(name: str, public: bool = False) -> str:
 
 @mcp.tool()
 async def search_tasks(query: str) -> str:
-    """ Search for tasks across all lists (Checks content and tags). 
+    """ [STABLE] Search for tasks across all lists (Checks content and tags). 
         Returns: JSON string with keys 'success', 'message', 'data' (list of matching tasks).
     """
     try:
@@ -338,7 +338,7 @@ def _format_task_with_meta(t: dict) -> str:
 
 @mcp.tool()
 async def move_task_tool(list_id: str, task_id: str, target_list_id: str = None, target_parent_id: str = None, confirmed: bool = False) -> str:
-    """ Move a task within a list or to a completely different list. 
+    """ [BETA] Move a task within a list or to a completely different list. 
         If target_list_id is provided, it performs a cross-list move (preserving children).
         confirmed=True: Skip the safety confirmation (use only after user approval).
         Returns: JSON string with keys 'success', 'message'.
@@ -378,7 +378,7 @@ async def move_task_tool(list_id: str, task_id: str, target_list_id: str = None,
 @mcp.tool()
 async def import_tasks(list_id: str, content: str, parent_id: str = None) -> str:
     """
-    Bulk import tasks using Checkvist's hierarchical text format.
+    [BETA] Bulk import tasks using Checkvist's hierarchical text format.
     Returns: JSON string with keys 'success', 'message'.
     """
     try:
@@ -404,7 +404,7 @@ async def import_tasks(list_id: str, content: str, parent_id: str = None) -> str
 @mcp.tool()
 async def add_note(list_id: str, task_id: str, note: str) -> str:
     """ 
-    Add a note (comment) to a specific task. 
+    [STABLE] Add a note (comment) to a specific task. 
     Returns: JSON string with keys 'success', 'message'.
     """
     try:
@@ -429,7 +429,7 @@ async def add_note(list_id: str, task_id: str, note: str) -> str:
 @mcp.tool()
 async def get_task(list_id: str, task_id: str, include_children: bool = False, depth: int = 2) -> str:
     """ 
-    Get detailed information for a specific task including notes, comments, and breadcrumbs.
+    [STABLE] Get detailed information for a specific task including notes, comments, and breadcrumbs.
     If include_children is True, returns the subtask tree up to the specified depth.
     
     Returns: JSON string with keys 'success', 'message', 'data' (details and optional tree).
@@ -489,7 +489,7 @@ async def get_task(list_id: str, task_id: str, include_children: bool = False, d
 @mcp.tool()
 async def update_task(list_id: str, task_id: str, content: str = None, priority: int = None, due: str = None, tags: str = None) -> str:
     """ 
-    Update a task's properties. 
+    [STABLE] Update a task's properties. 
     Returns: JSON string with keys 'success', 'message', 'data' (updated task).
     """
     try:
@@ -524,7 +524,7 @@ async def update_task(list_id: str, task_id: str, content: str = None, priority:
 
 @mcp.tool()
 async def rename_list(list_id: str, new_name: str) -> str:
-    """ Rename an existing checklist. 
+    """ [STABLE] Rename an existing checklist. 
         Returns: JSON string with keys 'success', 'message'.
     """
     try:
@@ -547,7 +547,7 @@ async def rename_list(list_id: str, new_name: str) -> str:
 
 @mcp.tool()
 async def reopen_task(list_id: str, task_id: str) -> str:
-    """ Reopen a closed task. 
+    """ [STABLE] Reopen a closed task. 
         Returns: JSON string with keys 'success', 'message', 'data' (reopened task).
     """
     try:
@@ -571,9 +571,10 @@ async def reopen_task(list_id: str, task_id: str) -> str:
         )
 
 @mcp.tool()
-async def apply_template(template_list_id: str, target_list_id: str, confirmed: bool = False) -> str:
-    """ Clone all tasks from a template list into a target list.
+async def apply_template(template_list_id: str, target_list_id: str, confirmed: bool = False, variables: dict = None) -> str:
+    """ [BETA] Clone all tasks from a template list into a target list.
         confirmed=True: Skip the safety confirmation (use only after user approval).
+        variables: Optional dictionary of key-value pairs to replace in template content (e.g. {"CLIENT": "Acme"}).
         Returns: JSON string with keys 'success', 'message'.
     """
     if not confirmed:
@@ -617,6 +618,13 @@ async def apply_template(template_list_id: str, target_list_id: str, confirmed: 
                 if ARCHIVE_TAG in task.get('tags', []):
                     continue
                 content = task.get('content', '')
+                
+                # Apply variable substitution
+                if variables:
+                     for key, val in variables.items():
+                         # Replace {{KEY}} with val
+                         content = content.replace(f"{{{{{key}}}}}", str(val))
+                         
                 priority = task.get('priority')
                 if priority and f"!{priority}" not in content:
                     content += f" !{priority}"
@@ -655,7 +663,7 @@ async def apply_template(template_list_id: str, target_list_id: str, confirmed: 
 @mcp.tool()
 async def get_review_data(timeframe: str = "weekly") -> str:
     """ 
-    Get raw statistics about completed vs open tasks for a quick dashboard.
+    [BETA] Get raw statistics about completed vs open tasks for a quick dashboard.
     For a detailed analysis with stale/blocked tasks, use 'weekly_review' tool.
     """
     try:
@@ -687,7 +695,7 @@ async def get_review_data(timeframe: str = "weekly") -> str:
 @mcp.tool()
 async def weekly_review() -> str:
     """
-    Perform a detailed strategic weekly review across all checklists.
+    [BETA] Perform a detailed strategic weekly review across all checklists.
     Identifies 'Recent Wins', 'Stale Tasks' (14d+), and 'Blocked Items'.
     Generates a Markdown report tailored for the 'Productivity Architect'.
     """
@@ -710,7 +718,7 @@ async def weekly_review() -> str:
 
 @mcp.tool()
 async def migrate_incomplete_tasks(source_list_id: str, target_list_id: str, confirmed: bool = False) -> str:
-    """ Move all incomplete tasks from one list to another (e.g., closing a cycle/sprint).
+    """ [ALPHA] Move all incomplete tasks from one list to another (e.g., closing a cycle/sprint).
         confirmed=True: Skip the safety confirmation (use only after user approval).
         Returns: JSON string with keys 'success', 'message'.
     """
@@ -742,9 +750,37 @@ async def migrate_incomplete_tasks(source_list_id: str, target_list_id: str, con
             error_details=str(e)
         )
 
+def analyze_task_heuristics(task: dict, checklists: list) -> dict | None:
+    """
+    Analyze a task and suggest actions based on heuristics.
+    """
+    content = task.get("content", "").lower()
+    
+    # Heuristic 1: Keyword Matching
+    keyword_map = {
+        "bug": "Engineering",
+        "feature": "Engineering",
+        "article": "Reading",
+        "post": "Marketing",
+        "mail": "Admin"
+    }
+    
+    for kw, target_name in keyword_map.items():
+        if kw in content:
+            target = next((l for l in checklists if target_name.lower() in l["name"].lower()), None)
+            if target:
+                return {
+                    "action": "move", 
+                    "target_list": target["name"], 
+                    "target_list_id": target["id"], 
+                    "reason": f"Keyword '{kw}' matches {target['name']} list"
+                }
+    return None
+
 @mcp.tool()
-async def triage_inbox(inbox_name: str = "Inbox") -> str:
-    """ Fetch tasks from the 'Inbox' list for triage. 
+async def triage_inbox(inbox_name: str = "Inbox", analyze: bool = False) -> str:
+    """ [ALPHA] Fetch tasks from the 'Inbox' list for triage. 
+        analyze: If True, applies heuristics to suggest target lists (e.g. 'bug' -> Engineering).
         Returns: JSON string with keys 'success', 'message', 'data' (triage tasks list).
     """
     try:
@@ -771,12 +807,20 @@ async def triage_inbox(inbox_name: str = "Inbox") -> str:
         task_map = {t['id']: {'data': t} for t in tasks}
         rate_warning = check_rate_limit()
         formatted_tasks = []
+        
         for t in open_tasks:
-             formatted_tasks.append({
+             item = {
                  "id": t['id'],
                  "content": t['content'],
                  "breadcrumb": build_breadcrumb(t['id'], task_map)
-             })
+             }
+             
+             if analyze:
+                 suggestion = analyze_task_heuristics(item, checklists)
+                 if suggestion:
+                     item["suggestion"] = suggestion
+                     
+             formatted_tasks.append(item)
 
         return StandardResponse.success(
             message=f"Found {len(open_tasks)} tasks for triage in {inbox['name']}.{rate_warning}",
@@ -794,7 +838,7 @@ async def triage_inbox(inbox_name: str = "Inbox") -> str:
 
 @mcp.tool()
 async def get_tree(list_id: str, depth: int = 1) -> str:
-    """ Get the task tree for a list, respecting a depth limit to save tokens.
+    """ [STABLE] Get the task tree for a list, respecting a depth limit to save tokens.
         Returns: JSON string with keys 'success', 'message', 'data' (tree structure string).
     """
     try:
@@ -804,7 +848,9 @@ async def get_tree(list_id: str, depth: int = 1) -> str:
         roots = await s.get_tree(l_id, int(depth))
                 
         def print_node(node, current_depth):
-            if current_depth > depth:
+            # Depth check is now handled by service, but we keep this for safety
+            # against recursive printing if service changes behavior
+            if current_depth > depth + 1: 
                 return ""
             
             task = node['data']

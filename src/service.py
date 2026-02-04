@@ -245,8 +245,18 @@ class CheckvistService:
                 task_map[pid]['children'].append(task_map[t['id']])
             else:
                 roots.append(task_map[t['id']])
-                
-        return roots
+
+        # Apply depth truncation recursively
+        def truncate_node(node, current_depth):
+            if current_depth >= depth - 1:
+                return {'data': node['data'], 'children': []}
+            
+            return {
+                'data': node['data'],
+                'children': [truncate_node(child, current_depth + 1) for child in node['children']]
+            }
+
+        return [truncate_node(root, 0) for root in roots]
 
     async def get_weekly_summary(self) -> str:
         """
