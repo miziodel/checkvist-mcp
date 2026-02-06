@@ -22,8 +22,8 @@ class CheckvistClient:
             return {}
         try:
             return response.json()
-        except Exception as e:
-            logger.error(f"Failed to parse JSON response: {response.text}. Error: {e}")
+        except Exception:
+            # Silence logging for non-JSON responses (e.g. JS from /paste endpoint)
             return {}
 
     async def authenticate(self) -> bool:
@@ -139,20 +139,22 @@ class CheckvistClient:
     async def move_task_hierarchy(self, list_id: int, task_id: int, target_list_id: int, target_parent_id: int = None):
         """ Move a task and all its children to a different checklist. 
             Uses the undocumented /paste endpoint found via UI forensics. 
+            Splits operation into two steps because /paste ignores target_parent_id across lists.
         """
-        # Pattern: POST /checklists/{source_list_id}/tasks/{task_id}/paste
-        # Params: move_to={target_list_id}&task_ids={task_id}
+        # Step 1: Move to target list (lands at root)
         url = f"/checklists/{list_id}/tasks/{task_id}/paste"
         params = {
             "move_to": target_list_id,
             "task_ids": task_id
         }
-        if target_parent_id:
-            params["target_parent_id"] = target_parent_id
             
         response = await self.client.post(url, params=params)
         response.raise_for_status()
         
+        # Step 2: If a target parent was specified, move it under that parent in the new list
+        if target_parent_id:
+            await self.move_task(target_list_id, task_id, target_parent_id)
+
         # The paste endpoint returns a JS-like response (text/javascript), not JSON.
         # We treat 200 OK as success.
         try:

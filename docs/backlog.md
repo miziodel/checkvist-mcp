@@ -113,3 +113,4 @@ This document is the single source of truth for all planned improvements, archit
 - [x] **New Capability**: Implemented `get_upcoming_tasks` tool and `checkvist://due` resource.
 - [x] **Capability**: Implemented `weekly_review` tool for Productivity Architect (Wins/Stale/Blocked analysis).
 - [x] **Documentation**: Added `PERF-001` benchmark to SCENARIOS.md and VERIFICATION_GUIDE.md.
+- [x] **Bug Fix**: `move_task` hierarchy loss across lists (Fixed 2026-02-04).

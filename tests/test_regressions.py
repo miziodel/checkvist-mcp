@@ -2,6 +2,8 @@ import pytest
 import httpx
 import time
 import json
+import respx
+from httpx import Response
 from unittest.mock import MagicMock, patch, AsyncMock
 from src.server import move_task_tool, search_tasks, archive_task, apply_template, ARCHIVE_TAG
 from src.client import CheckvistClient
@@ -302,3 +304,39 @@ async def test_safe_id_validation():
     data = json.loads(res)
     assert data["success"] is False
     assert "Invalid target list ID" in data["message"]
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_bug_010_move_task_cross_list_parent_id():
+    """BUG-010: Verify that move_task_tool handles cross-list parenting correctly."""
+    client = CheckvistClient("user", "key")
+    client.token = "mock_token"
+    
+    # 1. Mock the /paste endpoint (Step 1 of fix)
+    paste_route = respx.post("https://checkvist.com/checklists/100/tasks/1/paste").mock(
+        return_value=Response(200, content=b"Paste OK")
+    )
+    
+    # 2. Mock the /update endpoint (Step 2 of fix)
+    update_route = respx.put("https://checkvist.com/checklists/200/tasks/1.json").mock(
+        return_value=Response(200, json={"id": 1, "parent_id": 2001, "content": "Moved Task"})
+    )
+    
+    with patch("src.server.get_client", return_value=client):
+        result = await move_task_tool(
+            list_id="100", 
+            task_id="1", 
+            target_list_id="200", 
+            target_parent_id="2001", 
+            confirmed=True
+        )
+        
+        assert paste_route.called
+        assert update_route.called
+        
+        # Verify the update call set the parent_id correctly
+        update_data = update_route.calls.last.request.read().decode()
+        assert "task%5Bparent_id%5D=2001" in update_data or "task[parent_id]=2001" in update_data
+        
+        data = json.loads(result)
+        assert data["success"] is True

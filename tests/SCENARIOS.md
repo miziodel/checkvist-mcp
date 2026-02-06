@@ -180,6 +180,15 @@ When the Agent calls `import_tasks`
 Then the content is sent in the POST body (not URL) to ensure stability.
 ```
 
+### BUG-010: Cross-List Parent ID Preservation
+*Issue: move_task ignores target_parent_id when moving tasks across lists.*
+```gherkin
+Given a task in List A and a target parent in List B
+When the Agent calls `move_task_tool` with target_list_id and target_parent_id
+Then the task is first relocated to the root of List B
+And then reparented under the correct target_parent_id in List B.
+```
+
 ---
 
 ## 📦 Phase 3: Bulk & Group Operations (BULK)

@@ -19,6 +19,16 @@ class CheckvistService:
             await self.client.authenticate()
         return self.client
 
+    def _parse_tags(self, tags_field: Any) -> List[str]:
+        """Robustly parse tags from various Checkvist API response formats."""
+        if isinstance(tags_field, list):
+            return [str(t) for t in tags_field]
+        elif isinstance(tags_field, dict):
+            return [str(t) for t in tags_field.keys()]
+        elif isinstance(tags_field, str) and tags_field:
+            return [t.strip() for t in tags_field.split(',') if t.strip()]
+        return []
+
     async def get_checklists(self) -> List[Dict[str, Any]]:
         client = await self._get_authed_client()
         if "lists" in self.list_cache:
@@ -46,65 +56,68 @@ class CheckvistService:
         all_matches = []
         query_lower = query.lower()
         
-        # Step 1: Efficient fetching (N lists)
-        for cl in lists:
-            await asyncio.sleep(0.05) 
-            try:
-                tasks = await client.get_tasks(cl["id"])
-                
-                # Step 2: Build local map for breadcrumbs within this list
-                task_map = {t["id"]: t for t in tasks}
-                
-                # Pre-calculate children count
-                children_map = {}
-                for t in tasks:
-                    pid = t.get("parent_id")
-                    if pid:
-                        children_map[pid] = children_map.get(pid, 0) + 1
-                
-                for task in tasks:
-                    # Search in content OR tags (Fix BUG-005) OR ID exact match
-                    content_match = query_lower in task.get("content", "").lower()
-                    id_match = str(task["id"]) == query.strip()
-                    tags = task.get("tags", [])
-                    # Handle both list and dict tags (Robustness BUG-002)
-                    tag_list = tags if isinstance(tags, list) else list(tags.keys()) if isinstance(tags, dict) else []
-                    tag_match = any(query_lower in str(tag).lower() for tag in tag_list)
+        # Step 1: Parallel fetching with concurrency limit
+        semaphore = asyncio.Semaphore(5)
+        
+        async def process_list(cl):
+            async with semaphore:
+                try:
+                    tasks = await client.get_tasks(cl["id"])
+                    # Local map for breadcrumbs
+                    task_map = {t["id"]: t for t in tasks}
                     
-                    if content_match or tag_match or id_match:
-                        # Add indicators
-                        notes_count = task.get("notes_count", 0)
-                        comments_count = task.get("comments_count", 0)
-                        child_count = children_map.get(task["id"], 0)
+                    # Pre-calculate children count
+                    children_map = {}
+                    for t in tasks:
+                        pid = t.get("parent_id")
+                        if pid:
+                            children_map[pid] = children_map.get(pid, 0) + 1
+                    
+                    matches = []
+                    for task in tasks:
+                        content_match = query_lower in task.get("content", "").lower()
+                        id_match = str(task["id"]) == query.strip()
+                        tag_list = self._parse_tags(task.get("tags"))
+                        tag_match = any(query_lower in t.lower() for t in tag_list)
                         
-                        indicators = []
-                        if notes_count > 0: indicators.append("[N]")
-                        if comments_count > 0: indicators.append("[C]")
-                        if child_count > 0: indicators.append(f"[F: {child_count}]")
-                        
-                        ind_str = " ".join(indicators) + " " if indicators else ""
-                        
-                        # Add decorators for search result strings
-                        meta = []
-                        priority = task.get('priority')
-                        if priority is not None and int(priority) > 0: 
-                            meta.append(f"!{priority}")
-                        if task.get('due_date'): meta.append(f"^{task['due_date']}")
-                        for tag in tag_list:
-                             if tag != "deleted": meta.append(f"#{tag}")
-                        
-                        meta_str = " " + " ".join(meta) if meta else ""
-                        task["list_name"] = cl["name"]
-                        task["list_id"] = cl["id"]
-                        task["has_notes"] = notes_count > 0
-                        task["has_comments"] = comments_count > 0
-                        task["child_count"] = child_count
-                        
-                        breadcrumb = self._build_breadcrumb_from_map(task["id"], task_map)
-                        task["breadcrumb"] = f"{ind_str}{breadcrumb}{meta_str}"
-                        all_matches.append(task)
-            except Exception as e:
-                logger.error(f"Search failed for list {cl['id']}: {e}")
+                        if content_match or tag_match or id_match:
+                            notes_count = task.get("notes_count", 0)
+                            comments_count = task.get("comments_count", 0)
+                            child_count = children_map.get(task["id"], 0)
+                            
+                            indicators = []
+                            if notes_count > 0: indicators.append("[N]")
+                            if comments_count > 0: indicators.append("[C]")
+                            if child_count > 0: indicators.append(f"[F: {child_count}]")
+                            
+                            ind_str = " ".join(indicators) + " " if indicators else ""
+                            
+                            meta = []
+                            priority = task.get('priority')
+                            if priority is not None and int(priority) > 0: 
+                                meta.append(f"!{priority}")
+                            if task.get('due_date'): meta.append(f"^{task['due_date']}")
+                            for tag in tag_list:
+                                 if tag != "deleted": meta.append(f"#{tag}")
+                            
+                            meta_str = " " + " ".join(meta) if meta else ""
+                            task["list_name"] = cl["name"]
+                            task["list_id"] = cl["id"]
+                            task["has_notes"] = notes_count > 0
+                            task["has_comments"] = comments_count > 0
+                            task["child_count"] = child_count
+                            
+                            breadcrumb = self._build_breadcrumb_from_map(task["id"], task_map)
+                            task["breadcrumb"] = f"{ind_str}{breadcrumb}{meta_str}"
+                            matches.append(task)
+                    return matches
+                except Exception as e:
+                    logger.error(f"Search failed for list {cl['id']}: {e}")
+                    return []
+
+        results = await asyncio.gather(*[process_list(cl) for cl in lists])
+        for matches in results:
+            all_matches.extend(matches)
                 
         return all_matches[:10] # Cap to 10 context-rich results for better focus
 
@@ -209,16 +222,8 @@ class CheckvistService:
             if isinstance(t, list) and len(t) > 0:
                 t = t[0]
             
-            raw_tags = t.get('tags', [])
-            if isinstance(raw_tags, list):
-                tag_list = raw_tags
-            elif isinstance(raw_tags, dict):
-                tag_list = list(raw_tags.keys())
-            elif isinstance(raw_tags, str) and raw_tags:
-                tag_list = [tag.strip() for tag in raw_tags.split(',')]
-            else:
-                tag_list = []
-                
+            tag_list = self._parse_tags(t.get('tags'))
+            
             if "deleted" not in tag_list:
                 tag_list.append("deleted")
                 await client.update_task(list_id, t['id'], tags=",".join(tag_list))
@@ -235,7 +240,8 @@ class CheckvistService:
         roots = []
         
         for t in tasks:
-            if "deleted" in t.get('tags', []): continue
+            tag_list = self._parse_tags(t.get('tags'))
+            if "deleted" in tag_list: continue
             
             pid = t.get('parent_id')
             # Normalize root detection (Fix BUG-003)
@@ -310,9 +316,8 @@ class CheckvistService:
                             stale.append(f"- {t['content']} (in **{cl['name']}**, last update: {updated_dt.strftime('%b %d')})")
                         
                         # 3. Identify Blocked (Has tag #blocked or similar)
-                        tags = t.get('tags', [])
-                        tag_list = tags if isinstance(tags, list) else list(tags.keys()) if isinstance(tags, dict) else []
-                        if any(kw in str(tag).lower() for tag in tag_list for kw in ["blocked", "waiting"]):
+                        tag_list = self._parse_tags(t.get('tags'))
+                        if any(kw in t.lower() for t in tag_list for kw in ["blocked", "waiting"]):
                             blocked.append(f"- {t['content']} (in **{cl['name']}**, tag: {tag_list})")
                             
             except Exception as e:

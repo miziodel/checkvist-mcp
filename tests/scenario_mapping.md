@@ -21,7 +21,8 @@ This document links each scenario defined in `tests/SCENARIOS.md` to its corresp
 | **BUG-006**  | Archive List Wrapping       | `tests/test_regressions.py` | `test_bug_006_archive_task_list_wrapped_response` | ✅     |
 | **BUG-007**  | Template Hierarchy Loss     | `tests/test_regressions.py` | `test_bug_007_template_hierarchy_preservation`    | ✅     |
 | **BUG-008**  | Reopen List Wrapping        | `tests/test_regressions.py` | `test_bug_008_reopen_task_list_response`          | ✅     |
-| **BUG-009**  | Import Tasks Payload Hang   | `tests/test_regressions.py` | `test_bug_009_import_tasks_payload_hygiene`       | ✅     |
+| **BUG-009** | Import Tasks Payload Hang   | `tests/test_regressions.py` | `test_bug_009_import_tasks_payload_hygiene`       | ✅     |
+| **BUG-010** | Cross-List Parent ID Fix    | `tests/test_regressions.py` | `test_bug_010_move_task_cross_list_parent_id`     | ✅     |
 | **BULK-001** | Hierarchical Bulk Import    | `tests/test_scenarios.py`   | `test_phase3_bulk_operations`                     | ✅     |
 | **BULK-002** | Internal Reparenting        | `tests/test_tools.py`       | `test_move_task_same_list`                        | ✅     |
 | **BULK-003** | Cross-List Migration        | `tests/test_scenarios.py`   | `test_phase3_bulk_operations`                     | ✅     |

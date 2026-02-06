@@ -214,6 +214,7 @@ source: Multi-Persona Strategic Debate (2026-02-01)
 - [x] API calls per workflow: **-50%** reduction
 - [x] User error clarity rating: **9/10** (Standardized responses implemented)
 - [x] Context Blindness: **0 reported cases** (Operative Intelligence implemented)
+- [x] Bug Fix: `move_task` cross-list hierarchy (Fixed 2026-02-04)
 
 ### Week 2 Metrics
 - [x] Scenario test coverage: 70% → **90%+**
