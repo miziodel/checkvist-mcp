@@ -34,7 +34,11 @@ This document tracks all Checkvist API endpoints used by the MCP server, their s
 | `/auth/login.json?version=2`                     | `POST` | `username`, `remote_key`        | ✅ Verified | Returns just the token string in JSON, not a dict.                                                 |
 | `/checklists/{id}/import.json`                   | `POST` | `import_content`, `parse_tasks` | ✅ Verified | Send content in body to avoid URL length limits.                                                   |
 | `/checklists/{id}/tasks/{task_id}/comments.json` | `POST` | `comment[comment]`              | ✅ Verified | Adds a note/comment.                                                                               |
-| `/checklists/{id}/tasks/{task_id}/paste`         | `POST` | `move_to`, `task_ids`           | ⚠️ Beta   | **Undocumented**. Returns `text/javascript` (not JSON). Returns 200 OK. Used for cross-list moves. |
+| `/checklists/{id}/tasks/{task_id}/paste`         | `POST` | `move_to`, `task_ids`           | ⚠️ Beta   | **Undocumented**. Returns `text/javascript`. Used for cross-list moves. (Found via Forensics)      |
+| `/checklists/{id}/tasks/{task_id}/tags.js`       | `POST` | `tags`, `task_ids`              | ⚠️ Beta   | **Undocumented**. Bulk tag operation. `task_ids` is comma-separated string.                        |
+| `/checklists/{id}/tasks/move.json`               | `POST` | `task_ids[]`, `parent_id`       | ⚠️ Beta   | **Undocumented**. Bulk re-parenting across or within checklists.                                   |
+| `/search/everywhere.json`                        | `GET`  | `what`                          | ⚠️ Beta   | **Undocumented**. Powerful global search for tasks and lists with unified suggestions.             |
+| `/checklists/{id}/tasks/{task_id}/details`       | `POST` | `details[mark]`, `_method=put`  | ⚠️ Beta   | **Undocumented**. Sets Priority/Color (e.g. `fg1`=Red, `fg2`=Orange). Requires `_method=put`.      |
 
 ## 🧪 Validation Strategy
 

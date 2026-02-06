@@ -19,15 +19,12 @@
   - Formalize "Keyboard-First" speed requirements.
   - Benchmark: Zero-Inbox triage for 10 items in < 30 seconds.
 
-> [!NOTE]
-> Phase 1.1 builds upon the foundation established in the [3-Week Stabilization Sprint](roadmap_3week_sprint.md), specifically technical debt reduction and API hygiene.
-
-**Success Metric**: User can perform a Weekly Review in < 5 minutes leveraging the MCP.
+**Success Metric**: User can perform a Weekly Review in < 5 minutes leveraging the MCP; Zero unhandled API crashes.
 
 ---
 
 ## 📅 Phase 1.2: Structural Intelligence (The "Context" Sprint)
-**Goal**: Automate project organization without complex AI dependencies.
+**Goal**: Automate project organization and improve operational speed.
 **Timeline**: 4 Weeks
 
 - [ ] **PROC-007: PARA Structure Recognition (Pattern-Based)**
@@ -36,8 +33,11 @@
 - [ ] **META-007-Lite: Automatic Context Linking (Grep-Based)**
   - When viewing or creating a task, suggest related tasks based on keyword intersections.
   - Prevent duplicate research/tasks.
+- [ ] **Bulk Performance Upgrades (Forensics Phase)**
+  - Implement native bulk tagging and re-parenting for massive speed gains.
+  - Transition from iterative API calls to atomic batch operations.
 
-**Success Metric**: 70% accuracy in PARA folder identification via pattern matching.
+**Success Metric**: 70% accuracy in PARA identification; 80% reduction in bulk operation latency.
 
 ---
 
@@ -45,10 +45,14 @@
 **Goal**: Full semantic understanding and proactive agentic assistance.
 **Timeline**: 3-6 Months
 
+- [ ] **Task Styling & Aesthetics (Forensics Phase)**
+  - Support for Priority Colors (marks) and Boldness via native `details` endpoint.
 - [ ] **PARA Recognition (Semantic)**
   - Use LLM/Embeddings to categorize items into PARA even without clear prefixes.
 - [ ] **Smart Linking (Semantic)**
   - Cross-reference tasks and notes using vector resonance.
+- [ ] **Global Search 2.0**
+  - Replace iterated playlist search with native instant search (`/search/everywhere.json`).
 - [ ] **GTD Full Contextualizer**
   - Support for `@context` tags even where native Checkvist support is limited.
 
@@ -63,4 +67,4 @@
 ## 📚 Related
 - [User Persona](persona.md)
 - [Multi-Persona Debate (2026-02-02)](strategy/260202/project_debate.md)
-- [3-Week Stabilization Roadmap](roadmap_3week_sprint.md)
+- [Discovery: Bulk Ops & Styling Proposal](proposals/2026-02-06_bulk_and_styling_api.md)

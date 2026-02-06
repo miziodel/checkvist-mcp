@@ -13,19 +13,25 @@ This document is the single source of truth for all planned improvements, archit
 
 ### Triage & Organization
 - [x] **Autonomous Inbox Smarts**: Auto-suggest categorization for items in "Inbox" based on historical project patterns. (Shipped Phase 1.3 - Triage Heuristics)
-- [ ] **Hierarchical Search (`search_tasks_enriched`)**: Return task breadcrumbs to solve "Hierarchical Blindness". (Planned for **Phase 1.1 / Week 1**)
+- [ ] **Hierarchical Search (`search_tasks_enriched`)**: Return task breadcrumbs to solve "Hierarchical Blindness". (Planned for **Phase 1.2**)
 - [ ] **Smart Snoozing (`Superhuman Style`)**: Tool to hide task branches until a specified date (via tagging or snoozing node).
 - [ ] **WBS Expansion**: Tool to decompose a high-level goal into a hierarchical Work Breakdown Structure (5+ levels).
 - [ ] **Hard Deletion Cleanup (Manual)**: Implement a way to physically delete tasks (bypassing logical `#deleted` archive) for space management or privacy.
 
 ### Context & Knowledge
-- [ ] **Semantic Search (`Logseq/Roam Style`)**: Implement local vector embeddings for tasks to support "meaning-based" search (e.g., finding "sustainability" in "green energy" tasks). (Planned for **Phase 2.0**)
+- [ ] **Semantic Search (`Logseq/Roam Style`)**: Implement local vector embeddings for tasks to support "meaning-based" search. (Planned for **Phase 2.0**)
 - [ ] **Dependency Linking (`GitHub Style`)**: Implement `link_dependency(task_a, task_b)` to visually/logically mark blockers (e.g., "Blocks #123").
 - [ ] **Meeting Synthesis**: Automated tool to parse transcripts and inject tasks directly into meeting nodes.
 
 ### Productivity Workflows
 - [x] **Variable Injection for Templates**: Enhance `apply_template` to support dynamic variables (e.g., `{{CLIENT_NAME}}`). (Shipped Phase 1.3)
 - [ ] **Progressive Distillation (`BASB Style`)**: Automated weekly cleanup to move stale items to "Archive/Stale" and generate progress summaries.
+
+### High-Performance Bulk Operations (Forensics Phase 2.0)
+- [ ] **Atomic Bulk Tagging**: Use native `/tags.js` for O(1) multi-tagging.
+- [ ] **Native Bulk Re-parenting**: Use `/move.json` for complex reorganization without iterative calls.
+- [ ] **Global Search 2.0**: Replace iterating playlist search with native `/search/everywhere.json`.
+- [ ] **Task Styling API**: Implement tool for setting Priority (marks) and Boldness via native `details` endpoint.
 
 ---
 
@@ -114,3 +120,4 @@ This document is the single source of truth for all planned improvements, archit
 - [x] **Capability**: Implemented `weekly_review` tool for Productivity Architect (Wins/Stale/Blocked analysis).
 - [x] **Documentation**: Added `PERF-001` benchmark to SCENARIOS.md and VERIFICATION_GUIDE.md.
 - [x] **Bug Fix**: `move_task` hierarchy loss across lists (Fixed 2026-02-04).
+- [x] **API Proposal**: [Bulk Operations & Advanced Styling](proposals/2026-02-06_bulk_and_styling_api.md) (Created 2026-02-06).
