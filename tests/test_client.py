@@ -194,7 +194,9 @@ async def test_safe_json_invalid_json():
     response.json.side_effect = Exception("Parsing error")
     
     result = await client._parse_checkvist_response(response)
-    assert result == {}
+    assert result["status"] == "ok"
+    assert "Success" in result["message"]
+    assert result["text"] == 'invalid json'
 
 @pytest.mark.asyncio
 async def test_rename_checklist_success():

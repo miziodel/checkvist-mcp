@@ -18,9 +18,10 @@
 - [x] **PERF-001: Performance Benchmarks**
   - Formalize "Keyboard-First" speed requirements.
   - Benchmark: Zero-Inbox triage for 10 items in < 30 seconds.
-- [x] **Infrastructure: Robust Exception Hierarchy**
-  - Refactored `client.py` with typed exceptions (Auth, API, RateLimit).
-  - Standardized error handling across all 20+ tools.
+- [x] **Infrastructure: Resilience & Stability (Phase 1 & 2)**
+  - Typed exceptions, Soft Error Detection, ASGI Lifespan Hygiene.
+  - Bulk Transactionality with Partial Success Reporting.
+  - Robust Recursive Archiving and Post-Import Verification.
 
 **Success Metric**: User can perform a Weekly Review in < 5 minutes leveraging the MCP; Zero unhandled API crashes.
 

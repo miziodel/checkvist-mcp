@@ -118,14 +118,15 @@ This document is the single source of truth for all planned improvements, archit
 *Strategic alignment after Technical Stability implementation*
 
 ### Critical
-- [ ] **Soft Error Audit**: Refactor `_safe_json` to `_parse_checkvist_response` to detect error fields in 200 OK payloads.
-- [ ] **Connection Hygiene Research**: Find the hook for `FastMCP` teardown (ASGI lifespan) to ensure `aclose()` is guaranteed.
-- [ ] **Bulk Transactionality**: Implement "Verify-Before-Success" for `move_task` and `apply_template`.
+- [x] **Soft Error Audit**: Refactor `_safe_json` to `_parse_checkvist_response` to detect error fields in 200 OK payloads.
+- [x] **Connection Hygiene Research**: Find the hook for `FastMCP` teardown (ASGI lifespan) to ensure `aclose()` is guaranteed.
+- [x] **Bulk Transactionality**: Implement "Verify-Before-Success" for `move_task` and `apply_template`.
 
 ---
 
 ## 🏁 Recently Completed
-- [x] **Technical Stability Foundation**: Implemented Typed Exception Hierarchy and Client Refactor (2026-02-06).
+- [x] **Technical Stability Foundation (Phase 1 & 2)**: Typed Exceptions, Lifespan Hygiene, Soft Error Detection (2026-02-07).
+- [x] **Resilience Core**: Bulk Transactionality and Robust Recursive Archiving (2026-02-07).
 - [x] **Investigation**: Access "due date" view from API (Found undocumented `/checklists/due.json`). <!-- id: task-due-api -->
 - [x] **New Capability**: Implemented `get_upcoming_tasks` tool and `checkvist://due` resource.
 - [x] **Capability**: Implemented `weekly_review` tool for Productivity Architect (Wins/Stale/Blocked analysis).

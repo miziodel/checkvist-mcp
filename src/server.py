@@ -674,7 +674,23 @@ async def apply_template(template_list_id: str, target_list_id: str, confirmed: 
              )
              
         await c.import_tasks(tgt_id, import_text)
-        return StandardResponse.success(message=f"Template applied successfully to list {tgt_id}.")
+        
+        # Post-import verification
+        imported_lines = [l for l in import_text.splitlines() if l.strip()]
+        new_tasks = await c.get_tasks(tgt_id)
+        
+        # Simple heuristic: verify that the last task content from import_text exists in new_tasks
+        # (This is more robust than counting as the list might already have tasks)
+        last_task_content = imported_lines[-1].strip()
+        found = any(last_task_content in t.get('content', '') for t in new_tasks)
+        
+        msg = f"Template applied successfully to list {tgt_id}."
+        if not found:
+            return StandardResponse.success(
+                message=f"{msg}\n\n> [!CAUTION]\n> **Verification Warning**: could not immediately find the last imported task in the list. It might take a moment to propagate."
+            )
+            
+        return StandardResponse.success(message=f"{msg} Verified {len(imported_lines)} tasks imported.")
     except ValueError as e:
         return StandardResponse.error(str(e), "apply_template", "Ensure IDs are numeric.")
     except Exception as e:

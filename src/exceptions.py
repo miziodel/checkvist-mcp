@@ -1,3 +1,5 @@
+from typing import Any
+
 class CheckvistError(Exception):
     """Base exception for all Checkvist-related errors."""
     pass
@@ -23,3 +25,9 @@ class CheckvistResourceNotFoundError(CheckvistAPIError):
 class CheckvistConnectionError(CheckvistError):
     """Raised when the client cannot connect to the server."""
     pass
+
+class CheckvistPartialSuccessError(CheckvistError):
+    """Raised when a multi-step operation partially succeeds."""
+    def __init__(self, message: str, partial_data: Any = None):
+        self.partial_data = partial_data
+        super().__init__(message)

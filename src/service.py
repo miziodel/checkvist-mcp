@@ -217,19 +217,30 @@ class CheckvistService:
         
         # 2. Apply tag to all
         count = 0
+        errors = []
+        
         for t in targets:
             # Handle possible list-wrapped items in 'all_tasks' (defensive)
             if isinstance(t, list) and len(t) > 0:
                 t = t[0]
             
-            tag_list = self._parse_tags(t.get('tags'))
-            
-            if "deleted" not in tag_list:
-                tag_list.append("deleted")
-                await client.update_task(list_id, t['id'], tags=",".join(tag_list))
-                count += 1
+            try:
+                tag_list = self._parse_tags(t.get('tags'))
                 
-        return f"Task {task_id} and {len(descendants)} subtasks successfully archived (updated {count} items)."
+                if "deleted" not in tag_list:
+                    tag_list.append("deleted")
+                    await client.update_task(list_id, t['id'], tags=",".join(tag_list))
+                    count += 1
+            except Exception as e:
+                logger.error(f"Failed to archive task {t['id']}: {e}")
+                errors.append(f"Task {t['id']} ({t.get('content', 'Unknown')}): {e}")
+                
+        summary = f"Archived {count}/{len(targets)} tasks."
+        if errors:
+            error_details = "\n- ".join(errors)
+            return f"{summary}\n\n> [!WARNING]\n> {len(errors)} tasks failed to archive:\n- {error_details}"
+                
+        return f"Task {task_id} and its {len(descendants)} descendants successfully archived ({count} items updated)."
 
     async def get_tree(self, list_id: int, depth: int = 1) -> List[Dict[str, Any]]:
         client = await self._get_authed_client()

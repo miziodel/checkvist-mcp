@@ -8,7 +8,8 @@ from src.exceptions import (
     CheckvistAPIError,
     CheckvistRateLimitError,
     CheckvistResourceNotFoundError,
-    CheckvistConnectionError
+    CheckvistConnectionError,
+    CheckvistPartialSuccessError
 )
 
 class CheckvistClient:
@@ -46,7 +47,7 @@ class CheckvistClient:
             raise CheckvistAPIError(f"API Error ({status}): {e}", status_code=status) from e
         except Exception as e:
             # Re-raise CheckvistErrors as is
-            if isinstance(e, (CheckvistAuthError, CheckvistAPIError, CheckvistConnectionError)):
+            if isinstance(e, (CheckvistAuthError, CheckvistAPIError, CheckvistConnectionError, CheckvistResourceNotFoundError, CheckvistRateLimitError, CheckvistPartialSuccessError)):
                 raise
             raise CheckvistAPIError(f"Unexpected error: {e}") from e
 
@@ -64,8 +65,10 @@ class CheckvistClient:
             data = response.json()
         except Exception:
             # Not JSON - could be the JS response from /paste endpoint or others
-            # If status is 200-299, we treat it as successful empty response
-            return {}
+            # If status is 200-299, we treat it as successful
+            if 200 <= response.status_code < 300:
+                return {"status": "ok", "message": "Success (non-JSON response)", "text": response.text}
+            return {"error": "Invalid JSON response", "status_code": response.status_code, "text": response.text}
 
         # 3. Detect "Soft Errors" in dict responses
         if isinstance(data, dict):
@@ -196,27 +199,22 @@ class CheckvistClient:
             "task_ids": task_id
         }
             
-        response = await self.client.post(url, params=params)
-        
-        if response.status_code >= 400:
-            # Handle manually as _handle_request helper might not cover specific paste endpoint quirks
-            # But for consistency, let's just use raise for status logic
-            try:
-                response.raise_for_status()
-            except Exception as e:
-                raise CheckvistAPIError(f"Move hierarchy failed: {e}", status_code=response.status_code) from e
+        # Use _handle_request for consistency and automatic exception mapping
+        response_data = await self._handle_request("POST", url, params=params)
         
         # Step 2: If a target parent was specified, move it under that parent in the new list
         if target_parent_id:
-            await self.move_task(target_list_id, task_id, target_parent_id)
+            try:
+                await self.move_task(target_list_id, task_id, target_parent_id)
+            except Exception as e:
+                # We don't raise immediately because the task HAS been moved to the new list 
+                # (Step 1 succeeded). We raise a PartialSuccessError instead.
+                raise CheckvistPartialSuccessError(
+                    f"Task {task_id} moved to list {target_list_id}, but re-parenting under {target_parent_id} failed: {e}",
+                    partial_data={"task_id": task_id, "target_list_id": target_list_id, "target_parent_id": target_parent_id}
+                )
 
-        # The paste endpoint returns a JS-like response (text/javascript), not JSON.
-        # We treat 200 OK as success.
-        try:
-            return await self._parse_checkvist_response(response)
-        except Exception:
-            # Fallback for JS responses
-            return {"status": "ok", "message": "Hierarchy moved successfully"}
+        return response_data
 
     async def import_tasks(self, list_id: int, content: str, parent_id: int = None, position: int = None):
         """ Import tasks in bulk using Checkvist's hierarchical text format. """

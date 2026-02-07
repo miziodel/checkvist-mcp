@@ -42,7 +42,7 @@ async def test_bug_003_tag_robustness_dict_format(stateful_client):
     data = json.loads(result)
     assert data["success"] is True
     assert "successfully archived" in data["message"]
-    assert "updated 1 items" in data["message"]
+    assert "1 items updated" in data["message"]
     task = next(t for t in stateful_client.tasks if t["id"] == task_id)
     assert ARCHIVE_TAG in task["tags"]
     assert "urgent" in task["tags"]
@@ -307,6 +307,34 @@ async def test_server_lifespan_lifecycle():
     # After exiting block, client should be closed and set to None
     c.client.aclose.assert_called_once()
     assert src.server.client is None
+
+@pytest.mark.asyncio
+async def test_move_task_hierarchy_partial_failure():
+    """Verify that move_task_hierarchy raises CheckvistPartialSuccessError if reparenting fails."""
+    from src.client import CheckvistClient
+    from src.exceptions import CheckvistPartialSuccessError, CheckvistAPIError
+    import respx
+    from httpx import Response
+    
+    client = CheckvistClient("user", "key")
+    client.token = "fake_token"
+    
+    with respx.mock:
+        # 1. Step 1 (Paste) - SUCCESS
+        respx.post(url__regex=r".*/paste").mock(
+            return_value=Response(200, content=b"/* success */")
+        )
+        # 2. Step 2 (Reparent) - FAILURE (e.g. 404 or 429)
+        respx.put(url__regex=r".*/tasks/\d+\.json").mock(
+            return_value=Response(404, json={"error": "Not Found"})
+        )
+        
+        # This SHOULD raise CheckvistPartialSuccessError because Step 1 worked
+        with pytest.raises(CheckvistPartialSuccessError) as excinfo:
+            await client.move_task_hierarchy(list_id=1, task_id=10, target_list_id=2, target_parent_id=20)
+        
+        assert "moved to list 2" in str(excinfo.value).lower()
+        assert "re-parenting under 20 failed" in str(excinfo.value).lower()
 
 @pytest.mark.asyncio
 async def test_safe_id_validation():
