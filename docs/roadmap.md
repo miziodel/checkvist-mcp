@@ -45,6 +45,28 @@
 
 ---
 
+## 📅 Phase 1.3: Architectural Excellence (The "Model" Sprint)
+**Goal**: Transition to model-driven development for extreme stability and security.
+**Timeline**: 2 Weeks
+
+- [ ] **ARCH-001: Pydantic Model Integration**
+  - Replace dicts with formal models for `Task`, `Checklist`, and `Comment`.
+  - Automated validation at the API boundary.
+- [ ] **MCP-001: Native Global Search (`/search/everywhere.json`)**
+  - Replace iterative playlist searches with atomic native search for O(1) performance.
+- [ ] **MCP-002: Structural Sampling & Context Guard**
+  - Implement proactive truncation for lists > 100 items to protect the agent context window.
+- [ ] **SAFE-001: Security Hardening & Secret Masking**
+  - Implement custom logging filter to mask `X-Client-Token` and `remote_key`.
+  - Unified `wrap_data` application to ALL tools returning user content (Mitigate Prompt Injection).
+- [ ] **REFACTOR-001: Smart Syntax Engine**
+  - Extract parsing logic into a reusable utility class.
+  - Decouple server logic from client implementation.
+
+**Success Metric**: 100% type-safe data flow; Zero leaks of secrets in logs; Standardized security wrapping across all tools.
+
+---
+
 ## 🚀 Phase 2.0: Deep Intelligence (The "Neural" Sprint)
 **Goal**: Full semantic understanding and proactive agentic assistance.
 **Timeline**: 3-6 Months

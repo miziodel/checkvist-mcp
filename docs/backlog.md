@@ -38,6 +38,8 @@ This document is the single source of truth for all planned improvements, archit
 ## 🛠 Stability & Architecture
 - [x] **Custom Exception Hierarchy**: Refactor `src/client.py` to raise typed exceptions (e.g., `CheckvistAPIError`). (Shipped 2026-02-06)
 - [ ] **Strict Type Safety (Mypy)**: Reach 100% type hint coverage in `client.py` and enforce in CI.
+- [ ] **Pydantic Model Migration**: Transition from `Dict[str, Any]` to formal Pydantic models for core entities. (Planned for **Phase 1.3**)
+- [ ] **Smart Syntax Utility Extraction**: Extract tag/priority/date parsing from `server.py` and `client.py`.
 - [ ] **Enhanced API Authentication**: Upgrade the authentication mechanism to be more robust (e.g., token rotation, OAuth support if applicable, or better secret management).
 - [ ] **Centralized ID Coercion**: Move `int()` casting from `server.py` to `CheckvistService` for cleaner tool handlers.
 - [x] **Lazy Tree Fetching**: Optimize `get_tree` for extremely large checklists by fetching sub-branches on-demand. (Shipped Phase 1.3)
@@ -49,8 +51,9 @@ This document is the single source of truth for all planned improvements, archit
 - [x] **Resilience Testing**: Implement `tests/test_regressions.py` (API 500s, 403s, Timeouts). -> *Consolidated in v1.3.0*.
 - [ ] **Input Sanitization**: Implement `tests/test_input_validation.py` to verify resilience against Type Poisoning.
 - [ ] **Test Hierarchy**: Reorganize `tests/` into `unit/`, `integration/`, and `orchestration/` directories.
-- [ ] **Secret Masking Audit**: Verify that `CHECKVIST_API_KEY` is never leaked in tool error outputs or logs.
+- [ ] **Secret Masking Audit**: Verify that `CHECKVIST_API_KEY` and `X-Client-Token` are never leaked in tool error outputs or logs.
 - [ ] **Cross-List Permission Check**: Verify that `task_id` belongs to the provided `list_id` during operations.
+- [ ] **Prompt Injection Mitigation Audit**: Ensure ALL user-provided content from Checkvist is wrapped in security tags before being returned to the LLM.
 
 ---
 
