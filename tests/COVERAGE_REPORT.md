@@ -1,14 +1,12 @@
----
-version: 1.1.0
-last_modified: 2026-01-31
+version: 1.3.0
+last_modified: 2026-02-07
 status: active
----
 
 # Test Coverage vs Scenarios Report
-Date: 2026-01-31
+Date: 2026-02-07
 
 ## Summary
-Execution of `pytest tests` passed (72/72 tests). The suite now includes `tests/test_weekly_review.py` (integrated into scenarios) and `weekly_review` logic, providing 100% verification for all project scenarios including the new Performance Benchmarks.
+Execution of `pytest tests` passed (83/83 tests). The suite now includes `resilience` coverage, `lifespan` hygiene, and `BUG-010` verification across lists.
 
 | Scenario ID | Name                  | Implemented? | Tested? | Status               |
 | ----------- | --------------------- | ------------ | ------- | -------------------- |
@@ -30,6 +28,7 @@ Execution of `pytest tests` passed (72/72 tests). The suite now includes `tests/
 | BUG-007     | Template Hierarchy    | ✅           | ✅      | Covered              |
 | BUG-008     | Reopen List Wrapping  | ✅           | ✅      | Covered (repro_bugs) |
 | BUG-009     | Import Body Hygiene   | ✅           | ✅      | Covered (live_verify)|
+| BUG-010     | Cross-List Parent ID  | ✅           | ✅      | Covered (live_verify)        |
 | BULK-001    | Bulk Import           | ✅           | ✅      | Covered              |
 | BULK-002    | Internal Reparenting  | ✅           | ✅      | Covered              |
 | BULK-003    | Cross-List Migration  | ✅           | ✅      | Covered              |
