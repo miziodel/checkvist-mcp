@@ -3,6 +3,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+from src.exceptions import (
+    CheckvistAuthError,
+    CheckvistAPIError,
+    CheckvistRateLimitError,
+    CheckvistResourceNotFoundError,
+    CheckvistConnectionError
+)
+
 class CheckvistClient:
     BASE_URL = "https://checkvist.com"
 
@@ -15,16 +23,65 @@ class CheckvistClient:
     async def close(self):
         """ Close the underlying HTTP client. """
         await self.client.aclose()
+        
+    async def _handle_request(self, method: str, url: str, **kwargs):
+        """ Wrapper for all requests to handle exceptions globally """
+        try:
+            response = await self.client.request(method, url, **kwargs)
+            response.raise_for_status()
+            return await self._parse_checkvist_response(response)
+        except httpx.ConnectError as e:
+            raise CheckvistConnectionError(f"Failed to connect to Checkvist: {e}") from e
+        except httpx.HTTPStatusError as e:
+            status = e.response.status_code
+            if status == 401:
+                raise CheckvistAuthError("Authentication failed: Invalid credentials or token expired") from e
+            if status == 429:
+                raise CheckvistRateLimitError("Rate limit exceeded", status_code=429) from e
+            if status == 404:
+                raise CheckvistResourceNotFoundError(f"Resource not found: {url}", status_code=404) from e
+            if status >= 500:
+                raise CheckvistAPIError(f"Checkvist Server Error: {e}", status_code=status) from e
+            # Fallback for other errors (400, 403, etc)
+            raise CheckvistAPIError(f"API Error ({status}): {e}", status_code=status) from e
+        except Exception as e:
+            # Re-raise CheckvistErrors as is
+            if isinstance(e, (CheckvistAuthError, CheckvistAPIError, CheckvistConnectionError)):
+                raise
+            raise CheckvistAPIError(f"Unexpected error: {e}") from e
 
-    async def _safe_json(self, response: httpx.Response):
-        """ Safely parse JSON or return an empty dict if the body is empty (e.g. 204 No Content). """
+    async def _parse_checkvist_response(self, response: httpx.Response):
+        """
+        Parses JSON and detects "Soft Errors" hidden in HTTP 200 responses.
+        Returns the parsed data (list or dict) or raises a CheckvistError.
+        """
+        # 1. Handle 204 or empty body
         if response.status_code == 204 or not response.content.strip():
             return {}
+
+        # 2. Try parsing JSON
         try:
-            return response.json()
+            data = response.json()
         except Exception:
-            # Silence logging for non-JSON responses (e.g. JS from /paste endpoint)
+            # Not JSON - could be the JS response from /paste endpoint or others
+            # If status is 200-299, we treat it as successful empty response
             return {}
+
+        # 3. Detect "Soft Errors" in dict responses
+        if isinstance(data, dict):
+            # Checkvist error fields (can be "error" or "message")
+            error_text = data.get("error") or data.get("message")
+            if error_text and isinstance(error_text, str) and ("error" in data or "Found" in error_text or "Forbidden" in error_text):
+                # Map specific messages to exceptions
+                low_text = error_text.lower()
+                if "forbidden" in low_text or "not authorized" in low_text:
+                    raise CheckvistAuthError(f"API Error: {error_text}")
+                if "not found" in low_text:
+                    raise CheckvistResourceNotFoundError(f"API Error: {error_text}", status_code=response.status_code)
+                # Generic API error for 200 OK with error field
+                raise CheckvistAPIError(f"API Error: {error_text}", status_code=response.status_code)
+
+        return data
 
     async def authenticate(self) -> bool:
         """ Authenticate with Checkvist and get a token. """
@@ -33,30 +90,33 @@ class CheckvistClient:
                 "/auth/login.json?version=2",
                 params={"username": self.username, "remote_key": self.api_key}
             )
+            
             if response.status_code == 200:
-                # The response is just the token string in JSON
                 self.token = response.json()
                 self.client.headers["X-Client-Token"] = self.token
                 return True
+            elif response.status_code == 401:
+                raise CheckvistAuthError(f"Authentication failed: {response.text}")
             else:
-                logger.error(f"Authentication failed with status {response.status_code}")
-                return False
+                raise CheckvistAPIError(f"Authentication error: {response.text}", status_code=response.status_code)
+                
+        except httpx.ConnectError as e:
+             raise CheckvistConnectionError(f"Connection failed: {e}") from e
         except Exception as e:
             logger.exception("Error during authentication")
-            return False
+            # If we already raised a specific error, let it bubble
+            if isinstance(e, (CheckvistAuthError, CheckvistAPIError, CheckvistConnectionError)):
+                raise
+            raise CheckvistAuthError(f"Unexpected auth error: {e}") from e
 
     async def get_checklists(self):
         """ Get all checklists for the user. """
-        response = await self.client.get("/checklists.json")
-        response.raise_for_status()
-        return await self._safe_json(response)
+        return await self._handle_request("GET", "/checklists.json")
 
     async def get_tasks(self, list_id: int):
         """ Get all tasks in a checklist with notes and tags. """
         params = {"with_notes": "true", "with_tags": "true"}
-        response = await self.client.get(f"/checklists/{list_id}/tasks.json", params=params)
-        response.raise_for_status()
-        return await self._safe_json(response)
+        return await self._handle_request("GET", f"/checklists/{list_id}/tasks.json", params=params)
 
     async def create_checklist(self, name: str, public: bool = False):
         """ Create a new checklist. """
@@ -64,9 +124,7 @@ class CheckvistClient:
             "checklist[name]": name,
             "checklist[public]": str(public).lower()
         }
-        response = await self.client.post("/checklists.json", data=data)
-        response.raise_for_status()
-        return await self._safe_json(response)
+        return await self._handle_request("POST", "/checklists.json", data=data)
 
     async def add_task(self, list_id: int, content: str, parent_id: int = None, position: int = None, parse: bool = False):
         """ Add a new task to a checklist. """
@@ -78,28 +136,20 @@ class CheckvistClient:
         if parse:
             data["parse"] = "true"
             
-        response = await self.client.post(f"/checklists/{list_id}/tasks.json", data=data)
-        response.raise_for_status()
-        return await self._safe_json(response)
+        return await self._handle_request("POST", f"/checklists/{list_id}/tasks.json", data=data)
 
     async def close_task(self, list_id: int, task_id: int):
         """ Mark a task as closed. """
-        response = await self.client.post(f"/checklists/{list_id}/tasks/{task_id}/close.json")
-        response.raise_for_status()
-        return await self._safe_json(response)
+        return await self._handle_request("POST", f"/checklists/{list_id}/tasks/{task_id}/close.json")
 
     async def reopen_task(self, list_id: int, task_id: int):
         """ Reopen a closed task. """
-        response = await self.client.post(f"/checklists/{list_id}/tasks/{task_id}/reopen.json")
-        response.raise_for_status()
-        return await self._safe_json(response)
+        return await self._handle_request("POST", f"/checklists/{list_id}/tasks/{task_id}/reopen.json")
 
     async def get_task(self, list_id: int, task_id: int):
         """ Get a specific task with notes and tags. """
         params = {"with_notes": "true", "with_tags": "true"}
-        response = await self.client.get(f"/checklists/{list_id}/tasks/{task_id}.json", params=params)
-        response.raise_for_status()
-        return await self._safe_json(response)
+        return await self._handle_request("GET", f"/checklists/{list_id}/tasks/{task_id}.json", params=params)
 
     async def get_task_breadcrumbs(self, list_id: int, task_id: int):
         """ Get the breadcrumb path for a task. 
@@ -131,9 +181,7 @@ class CheckvistClient:
     async def move_task(self, list_id: int, task_id: int, parent_id: int):
         """ Move a task to a new parent within the same list. """
         data = {"task[parent_id]": parent_id}
-        response = await self.client.put(f"/checklists/{list_id}/tasks/{task_id}.json", data=data)
-        response.raise_for_status()
-        return await self._safe_json(response)
+        return await self._handle_request("PUT", f"/checklists/{list_id}/tasks/{task_id}.json", data=data)
 
 
     async def move_task_hierarchy(self, list_id: int, task_id: int, target_list_id: int, target_parent_id: int = None):
@@ -149,7 +197,14 @@ class CheckvistClient:
         }
             
         response = await self.client.post(url, params=params)
-        response.raise_for_status()
+        
+        if response.status_code >= 400:
+            # Handle manually as _handle_request helper might not cover specific paste endpoint quirks
+            # But for consistency, let's just use raise for status logic
+            try:
+                response.raise_for_status()
+            except Exception as e:
+                raise CheckvistAPIError(f"Move hierarchy failed: {e}", status_code=response.status_code) from e
         
         # Step 2: If a target parent was specified, move it under that parent in the new list
         if target_parent_id:
@@ -158,7 +213,7 @@ class CheckvistClient:
         # The paste endpoint returns a JS-like response (text/javascript), not JSON.
         # We treat 200 OK as success.
         try:
-            return await self._safe_json(response)
+            return await self._parse_checkvist_response(response)
         except Exception:
             # Fallback for JS responses
             return {"status": "ok", "message": "Hierarchy moved successfully"}
@@ -174,16 +229,12 @@ class CheckvistClient:
         if position:
             params["position"] = position
             
-        response = await self.client.post(f"/checklists/{list_id}/import.json", data=params)
-        response.raise_for_status()
-        return await self._safe_json(response)
+        return await self._handle_request("POST", f"/checklists/{list_id}/import.json", data=params)
 
     async def add_note(self, list_id: int, task_id: int, note: str):
         """ Add a comment/note to a specific task. """
         data = {"comment[comment]": note}
-        response = await self.client.post(f"/checklists/{list_id}/tasks/{task_id}/comments.json", data=data)
-        response.raise_for_status()
-        return await self._safe_json(response)
+        return await self._handle_request("POST", f"/checklists/{list_id}/tasks/{task_id}/comments.json", data=data)
 
     async def update_task(self, list_id: int, task_id: int, content: str = None, priority: int = None, tags: str = None, due_date: str = None):
         """ Update task details. Supports smart syntax if content is provided. """
@@ -195,36 +246,26 @@ class CheckvistClient:
         if tags: data["task[tags]"] = tags
         if due_date: data["task[due_date]"] = due_date
             
-        response = await self.client.put(f"/checklists/{list_id}/tasks/{task_id}.json", data=data)
-        response.raise_for_status()
-        return await self._safe_json(response)
+        return await self._handle_request("PUT", f"/checklists/{list_id}/tasks/{task_id}.json", data=data)
 
     async def rename_checklist(self, list_id: int, name: str):
         """ Rename an existing checklist. """
         data = {"checklist[name]": name}
-        response = await self.client.put(f"/checklists/{list_id}.json", data=data)
-        response.raise_for_status()
-        return await self._safe_json(response)
+        return await self._handle_request("PUT", f"/checklists/{list_id}.json", data=data)
 
     async def delete_checklist(self, list_id: int):
         """ Delete a checklist. """
-        response = await self.client.delete(f"/checklists/{list_id}.json")
-        response.raise_for_status()
-        return await self._safe_json(response)
+        return await self._handle_request("DELETE", f"/checklists/{list_id}.json")
 
     async def delete_task(self, list_id: int, task_id: int):
         """ Delete a task. """
-        response = await self.client.delete(f"/checklists/{list_id}/tasks/{task_id}.json")
-        response.raise_for_status()
-        return await self._safe_json(response)
+        return await self._handle_request("DELETE", f"/checklists/{list_id}/tasks/{task_id}.json")
 
     async def get_due_tasks(self):
         """ Get all tasks with due dates across all checklists. 
             Uses discovered endpoint /checklists/due.json.
         """
-        response = await self.client.get("/checklists/due.json")
-        response.raise_for_status()
-        return await self._safe_json(response)
+        return await self._handle_request("GET", "/checklists/due.json")
 
     async def search_tasks(self, query: str):
         """ Search for tasks using Checkvist's search logic where possible, 
@@ -253,5 +294,3 @@ class CheckvistClient:
         # Limit results to avoid token explosion
         return all_matches[:20]
 
-    async def close(self):
-        await self.client.aclose()

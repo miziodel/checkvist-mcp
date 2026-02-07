@@ -36,7 +36,7 @@ This document is the single source of truth for all planned improvements, archit
 ---
 
 ## 🛠 Stability & Architecture
-- [ ] **Custom Exception Hierarchy**: Refactor `src/client.py` to raise typed exceptions instead of returning empty fallback values.
+- [x] **Custom Exception Hierarchy**: Refactor `src/client.py` to raise typed exceptions (e.g., `CheckvistAPIError`). (Shipped 2026-02-06)
 - [ ] **Strict Type Safety (Mypy)**: Reach 100% type hint coverage in `client.py` and enforce in CI.
 - [ ] **Enhanced API Authentication**: Upgrade the authentication mechanism to be more robust (e.g., token rotation, OAuth support if applicable, or better secret management).
 - [ ] **Centralized ID Coercion**: Move `int()` casting from `server.py` to `CheckvistService` for cleaner tool handlers.
@@ -114,10 +114,22 @@ This document is the single source of truth for all planned improvements, archit
 
 ---
 
+## 🎯 Debate-Driven Priorities (2026-02-06)
+*Strategic alignment after Technical Stability implementation*
+
+### Critical
+- [ ] **Soft Error Audit**: Refactor `_safe_json` to `_parse_checkvist_response` to detect error fields in 200 OK payloads.
+- [ ] **Connection Hygiene Research**: Find the hook for `FastMCP` teardown (ASGI lifespan) to ensure `aclose()` is guaranteed.
+- [ ] **Bulk Transactionality**: Implement "Verify-Before-Success" for `move_task` and `apply_template`.
+
+---
+
 ## 🏁 Recently Completed
+- [x] **Technical Stability Foundation**: Implemented Typed Exception Hierarchy and Client Refactor (2026-02-06).
 - [x] **Investigation**: Access "due date" view from API (Found undocumented `/checklists/due.json`). <!-- id: task-due-api -->
 - [x] **New Capability**: Implemented `get_upcoming_tasks` tool and `checkvist://due` resource.
 - [x] **Capability**: Implemented `weekly_review` tool for Productivity Architect (Wins/Stale/Blocked analysis).
 - [x] **Documentation**: Added `PERF-001` benchmark to SCENARIOS.md and VERIFICATION_GUIDE.md.
 - [x] **Bug Fix**: `move_task` hierarchy loss across lists (Fixed 2026-02-04).
 - [x] **API Proposal**: [Bulk Operations & Advanced Styling](proposals/2026-02-06_bulk_and_styling_api.md) (Created 2026-02-06).
+

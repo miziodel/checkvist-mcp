@@ -27,7 +27,7 @@ async def test_bug_002_handle_204_no_content():
     response = MagicMock(spec=httpx.Response)
     response.status_code = 204
     response.content = b""
-    result = await client._safe_json(response)
+    result = await client._parse_checkvist_response(response)
     assert result == {}
 
 @pytest.mark.asyncio
@@ -228,26 +228,27 @@ async def test_bug_008_reopen_task_list_response(stateful_client):
         assert "Task reopened: Reopened" in data["message"]
 
 @pytest.mark.asyncio
+@respx.mock
 async def test_bug_009_import_tasks_payload_hygiene():
     """BUG-009: Verify import_tasks uses POST data (body) instead of query params."""
-    mock_client = AsyncMock(spec=httpx.AsyncClient)
     client = CheckvistClient("user", "key")
-    client.client = mock_client
+    client.token = "token"
     
-    # Mock the response object
-    mock_response = MagicMock(spec=httpx.Response)
-    mock_response.status_code = 200
-    mock_response.content = b'{"status": "ok"}'
-    mock_response.json.return_value = {"status": "ok"}
-    mock_client.post.return_value = mock_response
+    # Mock the response using respx
+    route = respx.post("https://checkvist.com/checklists/100/import.json").mock(
+        return_value=Response(200, json={"status": "ok"})
+    )
     
     await client.import_tasks("100", "task content")
     
-    # Check that post was called with data, not params
-    args, kwargs = mock_client.post.call_args
-    assert "data" in kwargs
-    assert kwargs["data"]["import_content"] == "task content"
-    assert "params" not in kwargs or not kwargs["params"]
+    # Check that request was called with POST and data
+    assert route.called
+    request = route.calls.last.request
+    assert request.method == "POST"
+    
+    # Verify content in body
+    body = request.read().decode()
+    assert "import_content=task+content" in body or "import_content=task content" in body
 
 @pytest.mark.asyncio
 async def test_template_root_detection_robustness(stateful_client):
@@ -284,6 +285,26 @@ async def test_safe_006_resource_shutdown():
     await shutdown()
     
     # Verify client.aclose() was called
+    c.client.aclose.assert_called_once()
+    assert src.server.client is None
+
+@pytest.mark.asyncio
+async def test_server_lifespan_lifecycle():
+    """Verify that server lifespan correctly calls shutdown on exit."""
+    from src.server import server_lifespan, get_client
+    import src.server
+    import httpx
+    
+    # Setup client
+    c = get_client()
+    c.client = AsyncMock(spec=httpx.AsyncClient)
+    
+    # Execute lifespan
+    async with server_lifespan(None):
+        # Server is "running"
+        assert src.server.client is not None
+        
+    # After exiting block, client should be closed and set to None
     c.client.aclose.assert_called_once()
     assert src.server.client is None
 

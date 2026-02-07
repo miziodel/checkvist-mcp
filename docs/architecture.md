@@ -101,3 +101,47 @@ graph TD
 ## 6. Caching & Coerenza
 - **Strategy**: Cache a 15 secondi per i metadati delle liste.
 - **Invalidation**: Ogni scrittura invalida la cache locale per garantire dati freschi.
+
+---
+
+## 7. Exception Handling (v2.1+)
+
+Il client implementa una **gerarchia di eccezioni tipizzate** per fornire feedback preciso sia all'agente che all'utente finale.
+
+### 7.1 Gerarchia Eccezioni (`src/exceptions.py`)
+
+```mermaid
+classDiagram
+    CheckvistError <|-- CheckvistAuthError
+    CheckvistError <|-- CheckvistAPIError
+    CheckvistError <|-- CheckvistConnectionError
+    CheckvistAPIError <|-- CheckvistRateLimitError
+    CheckvistAPIError <|-- CheckvistResourceNotFoundError
+    class CheckvistError {
+        Base exception
+    }
+    class CheckvistAPIError {
+        +status_code: int
+    }
+```
+
+### 7.2 Mapping HTTP -> Eccezione
+
+| HTTP Status | Exception                       | Uso Tipico                        |
+| :---------- | :------------------------------ | :-------------------------------- |
+| 401         | `CheckvistAuthError`            | Credenziali errate o token expired |
+| 404         | `CheckvistResourceNotFoundError` | Lista/Task non trovato            |
+| 429         | `CheckvistRateLimitError`       | Troppe richieste                  |
+| 5xx         | `CheckvistAPIError`             | Errore server Checkvist           |
+| (connect)   | `CheckvistConnectionError`      | Internet down, DNS fail           |
+
+### 7.3 Gestione nel Server Layer
+
+I tool MCP catturano le eccezioni tipizzate e le traducono in risposte `StandardResponse.error()` con messaggi azionabili:
+
+```python
+except CheckvistAuthError as e:
+    return StandardResponse.error(str(e), "tool_name", "Check your API key.")
+except CheckvistConnectionError as e:
+    return StandardResponse.error(str(e), "tool_name", "Check your internet connection.")
+```

@@ -85,6 +85,7 @@ See the **[Client Setup Guide](docs/client_setup.md)** for a ready-to-use JSON s
 | **Agenda Tool**           | ✅ Ready | Unified view across all lists for tasks due Today, Tomorrow, or Overdue (`get_upcoming_tasks`).      |
 | **Weekly Review**         | ✅ Ready | Strategic summary of wins, stale tasks, and blocked items for the "Productivity Architect".            |
 | **Maintenance**           | ✅ Ready | Recursive Logical Archiving (#deleted tag), Smart Syntax normalization (!! -> !), Robust Tag Handling. |
+| **Technical Stability**| ✅ Ready | Typed Exception Hierarchy & Centralized Error Handling for robust agentic interactions.               |
 
 ## 🛡️ "Choice Architecture" & Safety
 

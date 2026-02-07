@@ -1,6 +1,8 @@
+import logging
 import os
 import asyncio
 import re
+from contextlib import asynccontextmanager
 from datetime import datetime, date, timedelta
 from typing import Any, Optional, List, Dict
 from mcp.server.fastmcp import FastMCP
@@ -10,10 +12,28 @@ from src.response import StandardResponse
 from src import __version__
 from dotenv import load_dotenv
 from pathlib import Path
+from src.exceptions import (
+    CheckvistAuthError,
+    CheckvistAPIError,
+    CheckvistRateLimitError,
+    CheckvistResourceNotFoundError,
+    CheckvistConnectionError
+)
 load_dotenv(dotenv_path=Path(__file__).parent.parent / '.env')
 
-# Initialize FastMCP server
-mcp = FastMCP("Checkvist")
+@asynccontextmanager
+async def server_lifespan(server):
+    """ Lifecycle manager for the FastMCP server. """
+    try:
+        yield
+    finally:
+        # Clean shutdown of client connections
+        await shutdown()
+
+# Initialize FastMCP server with lifecycle management
+mcp = FastMCP("Checkvist", lifespan=server_lifespan)
+
+logger = logging.getLogger(__name__)
 
 # Initialize client and service
 client = None
@@ -85,6 +105,7 @@ async def shutdown():
     """ Properly close the client session. """
     global client
     if client:
+        logger.info("Closing Checkvist client connection...")
         await client.close()
         client = None
 
@@ -120,6 +141,10 @@ async def search_list(query: str) -> str:
             message=f"Found {len(matches)} matching lists.{rate_warning}",
             data=formatted_matches
         )
+    except CheckvistAuthError as e:
+        return StandardResponse.error(str(e), "search_list", "Please check your CHECKVIST_API_KEY and USERNAME.")
+    except CheckvistConnectionError as e:
+        return StandardResponse.error(str(e), "search_list", "Check your internet connection.")
     except Exception as e:
         return StandardResponse.error(
             message="Failed to search lists",

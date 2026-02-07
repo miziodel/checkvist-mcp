@@ -3,6 +3,7 @@ import respx
 import httpx
 from httpx import Response
 from src.client import CheckvistClient
+from src.exceptions import CheckvistAuthError
 from unittest.mock import MagicMock
 
 @pytest.mark.asyncio
@@ -31,9 +32,9 @@ async def test_authenticate_failure():
             return_value=Response(401)
         )
         
-        success = await client.authenticate()
+        with pytest.raises(CheckvistAuthError):
+            await client.authenticate()
         
-        assert success is False
         assert client.token is None
 
 @pytest.mark.asyncio
@@ -159,7 +160,7 @@ async def test_safe_json_204():
     response.status_code = 204
     response.content = b""
     
-    result = await client._safe_json(response)
+    result = await client._parse_checkvist_response(response)
     assert result == {}
 
 @pytest.mark.asyncio
@@ -169,7 +170,7 @@ async def test_safe_json_empty_body():
     response.status_code = 200
     response.content = b"  "
     
-    result = await client._safe_json(response)
+    result = await client._parse_checkvist_response(response)
     assert result == {}
 
 @pytest.mark.asyncio
@@ -180,7 +181,7 @@ async def test_safe_json_valid_body():
     response.content = b'{"id": 123, "content": "test"}'
     response.json.return_value = {"id": 123, "content": "test"}
     
-    result = await client._safe_json(response)
+    result = await client._parse_checkvist_response(response)
     assert result == {"id": 123, "content": "test"}
 
 @pytest.mark.asyncio
@@ -192,7 +193,7 @@ async def test_safe_json_invalid_json():
     response.text = 'invalid json'
     response.json.side_effect = Exception("Parsing error")
     
-    result = await client._safe_json(response)
+    result = await client._parse_checkvist_response(response)
     assert result == {}
 
 @pytest.mark.asyncio
