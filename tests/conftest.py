@@ -104,10 +104,13 @@ class StatefulMockClient:
     async def search_tasks(self, query):
         results = []
         for t in self.tasks:
-            if query.lower() in t["content"].lower():
+            content_lower = t.get("content", "").lower()
+            tags = t.get("tags", [])
+            tag_match = any(query.lower() in str(tag).lower() for tag in tags)
+            if query.lower() in content_lower or tag_match or str(t["id"]) == query:
                 # Add list name for context
                 l_name = next((l["name"] for l in self.lists if l["id"] == t["list_id"]), "Unknown")
-                results.append({**t, "list_name": l_name})
+                results.append({**t, "list_name": l_name, "checklist_id": t["list_id"]})
         return results
 
     async def get_task(self, list_id, task_id):
@@ -137,13 +140,33 @@ class StatefulMockClient:
                 if priority is not None: t["priority"] = priority
                 if tags is not None:
                     if isinstance(tags, str):
-                        # API style: comma separated string
                         t["tags"] = [tag.strip() for tag in tags.split(",") if tag.strip()]
                     else:
                         t["tags"] = tags
                 if due_date: t["due_date"] = due_date
                 return t
         raise ValueError("Task not found")
+
+    async def search_global(self, query):
+        """Mock global search."""
+        return await self.search_tasks(query)
+
+    async def bulk_tag_tasks(self, list_id, task_ids, tags):
+        """Mock bulk tagging."""
+        for tid in task_ids:
+            await self.update_task(list_id, tid, tags=tags)
+        return {"status": "ok"}
+
+    async def bulk_move_tasks(self, list_id, task_ids, target_list_id, target_parent_id=None):
+        """Mock bulk move."""
+        for tid in task_ids:
+            await self.move_task_hierarchy(list_id, tid, target_list_id, target_parent_id)
+        return {"status": "ok"}
+
+    async def set_task_styling(self, list_id, task_id, mark=None):
+        """Mock task styling."""
+        # Just simulate success
+        return {"status": "ok"}
 
     async def rename_checklist(self, list_id, name):
         for l in self.lists:

@@ -1,8 +1,6 @@
----
-version: 1.3.0
-last_modified: 2026-02-02
+version: 1.3.1
+last_modified: 2026-02-07
 status: active
----
 
 # Lessons Learned: Checkvist MCP Development
 
@@ -14,17 +12,21 @@ status: active
 - **Hidden Signatures**: Cross-list moves are correctly achieved via a **PUT request to the task endpoint with `task[checklist_id]`**.
 - **Type Coercion**: LLM clients may send IDs as strings. Explicitly casting input parameters to `int` in the tool layer prevents `TypeError` and `AttributeError` during API calls.
 - **Payload Location Hygiene**: For `POST` operations involving large text (imports), avoid query parameters (`params`). Some servers hang or return 414. Always use the request body (`data` or `json`).
-- **API Efficiency Opportunity** (2026-02-01): The Checkvist API supports `?with_notes=true&with_tags=true` parameters to fetch task metadata in a single call. Using these parameters can reduce API calls by 60% and simplify error handling (1 call = 1 failure mode vs 3).
+- **API Call Efficiency Opportunity** (2026-02-01): The Checkvist API supports `?with_notes=true&with_tags=true` parameters to fetch task metadata in a single call. Using these parameters can reduce API calls by 60% and simplify error handling.
+- **Soft Error Detection (2026-02-07)**: Many API endpoints return HTTP 200 OK even when a logical failure occurs (e.g. "task not found" error message in a JSON field). Robust clients MUST parse 200 OK payloads for known error indicators and raise appropriate exceptions.
+- **Partial Failure Atomicity (2026-02-07)**: For multi-step operations (like cross-list move + re-parent), implement "Verify-Before-Success". If a step fails, raise a typed `CheckvistPartialSuccessError` containing the state of the first successful step to prevent "Ghost Tasks" orphans.
 - **Smart Syntax Limits in Import**: The `/import.json` endpoint supports priority (`!N`) and tags (`#tag`), but **NOT** due dates (`^date`) or assignments (`@user`). These must be set via `update_task` after import. Attempting to use them in import results in raw text.
 - **Hidden "Due View" Endpoint** (2026-02-02): While the official API documentation lacks a global "due tasks" filter, a hidden endpoint `/checklists/due.json` exists (discovered via browser network traffic inspection). It returns all tasks with a due date across all lists, which is much more efficient than client-side scanning.
 
 ### 2. Resource Lifecycle Management
 - **Persistent Clients & Timeouts**: Asynchronous clients like `httpx` must have explicit timeouts (e.g., 10s) and a forced shutdown hook (`aclose()`) to prevent resource leaks and "hanging" processes during testing or production.
+- **ASGI Lifespan Integration (2026-02-07)**: For long-running MCP servers, leveraging the ASGI lifespan protocol ensures that dependencies (like API clients) are gracefully closed even during unexpected server terminations.
 - **Verification Script Hygiene** (2026-02-01): Long-running verification scripts (1h+) indicate resource leaks. All async clients must be properly closed in `finally` blocks, and scripts should have maximum runtime enforcement.
 
 ### 3. Robust Error Handling
 - **Passthrough vs. Friendly Errors**: Avoid passing raw Python exceptions to the MCP client. Use `try...except` in tools to return a formatted string that help the LLM understand what went wrong and how to fix it (e.g., "Invalid ID format" vs. `ValueError`).
 - **Standardized Error Format** (2026-02-01): All tools should return errors in a consistent format: `{"success": bool, "message": str, "action": str, "next_steps": str}` to improve LLM comprehension and user trust.
+- **Recursive Archiving Resilience (2026-02-07)**: High-latency operations like large branch archiving should use a "Collect and Report" pattern. Instead of failing on the first error, collect all failures and return a summary report to the user, ensuring maximum progress is made.
 
 ## 🛠 Workflow Lessons
 

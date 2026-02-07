@@ -103,7 +103,7 @@ async def run_complex_live_tests():
     # -- TEST 5: Search Verification with Breadcrumbs --
     # -- TEST 5: Search Verification --
     # We use a very unique string to make search faster or easier to verify
-    unique_search_term = f"Flat Task {int(time.time() % 10000)}"
+    unique_search_term = f"Flat Task {int(time.time())}"
     print(f"\n5. Verifying search with unique term: {unique_search_term}")
     await add_task(list_id, unique_search_term)
     

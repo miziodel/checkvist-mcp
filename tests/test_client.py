@@ -241,3 +241,48 @@ async def test_move_task_hierarchy_success():
         )
         res = await client.move_task_hierarchy(100, 2, 200)
         assert res["status"] == "ok"
+@pytest.mark.asyncio
+async def test_search_global_success():
+    client = CheckvistClient(username="test", api_key="key")
+    client.token = "token"
+    with respx.mock:
+        respx.get(url__regex=r"https://checkvist.com/search/everywhere.json.*").mock(
+            return_value=Response(200, json=[{"id": 101, "content": "Global Result"}])
+        )
+        results = await client.search_global("Global")
+        assert len(results) == 1
+        assert results[0]["content"] == "Global Result"
+
+@pytest.mark.asyncio
+async def test_bulk_tag_tasks_success():
+    client = CheckvistClient(username="test", api_key="key")
+    client.token = "token"
+    with respx.mock:
+        # Checkvist bulk tagging uses the first task_id in the URL
+        respx.post(url__regex=r"https://checkvist.com/checklists/100/tasks/101/tags.js.*").mock(
+            return_value=Response(200, text="ok")
+        )
+        res = await client.bulk_tag_tasks(100, [101, 102], "tag1,tag2")
+        assert res["status"] == "ok"
+
+@pytest.mark.asyncio
+async def test_bulk_move_tasks_success():
+    client = CheckvistClient(username="test", api_key="key")
+    client.token = "token"
+    with respx.mock:
+        respx.post("https://checkvist.com/checklists/100/tasks/move.json").mock(
+            return_value=Response(200, json={"status": "ok"})
+        )
+        res = await client.bulk_move_tasks(100, [101, 102], 200)
+        assert res["status"] == "ok"
+
+@pytest.mark.asyncio
+async def test_set_task_styling_success():
+    client = CheckvistClient(username="test", api_key="key")
+    client.token = "token"
+    with respx.mock:
+        respx.post("https://checkvist.com/details").mock(
+            return_value=Response(200, json={"status": "ok"})
+        )
+        res = await client.set_task_styling(100, 101, mark="fg1")
+        assert res["status"] == "ok"

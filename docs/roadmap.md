@@ -37,9 +37,9 @@
 - [ ] **META-007-Lite: Automatic Context Linking (Grep-Based)**
   - When viewing or creating a task, suggest related tasks based on keyword intersections.
   - Prevent duplicate research/tasks.
-- [ ] **Bulk Performance Upgrades (Forensics Phase)**
-  - Implement native bulk tagging and re-parenting for massive speed gains.
-  - Transition from iterative API calls to atomic batch operations.
+- [x] **Bulk Performance Upgrades (Forensics Phase)**
+    - [x] Implement native bulk tagging and re-parenting for massive speed gains.
+    - [x] Transition from iterative API calls to atomic batch operations.
 
 **Success Metric**: 70% accuracy in PARA identification; 80% reduction in bulk operation latency.
 
@@ -52,8 +52,8 @@
 - [ ] **ARCH-001: Pydantic Model Integration**
   - Replace dicts with formal models for `Task`, `Checklist`, and `Comment`.
   - Automated validation at the API boundary.
-- [ ] **MCP-001: Native Global Search (`/search/everywhere.json`)**
-  - Replace iterative playlist searches with atomic native search for O(1) performance.
+- [x] **MCP-001: Native Global Search (`/search/everywhere.json`)**
+  - [x] Replace iterative playlist searches with atomic native search for O(1) performance.
 - [ ] **MCP-002: Structural Sampling & Context Guard**
   - Implement proactive truncation for lists > 100 items to protect the agent context window.
 - [ ] **SAFE-001: Security Hardening & Secret Masking**
@@ -71,8 +71,8 @@
 **Goal**: Full semantic understanding and proactive agentic assistance.
 **Timeline**: 3-6 Months
 
-- [ ] **Task Styling & Aesthetics (Forensics Phase)**
-  - Support for Priority Colors (marks) and Boldness via native `details` endpoint.
+- [x] **Task Styling & Aesthetics (Forensics Phase)**
+  - [x] Support for Priority Colors (marks) and Boldness via native `details` endpoint.
 - [ ] **PARA Recognition (Semantic)**
   - Use LLM/Embeddings to categorize items into PARA even without clear prefixes.
 - [ ] **Smart Linking (Semantic)**

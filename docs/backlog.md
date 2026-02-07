@@ -27,11 +27,11 @@ This document is the single source of truth for all planned improvements, archit
 - [x] **Variable Injection for Templates**: Enhance `apply_template` to support dynamic variables (e.g., `{{CLIENT_NAME}}`). (Shipped Phase 1.3)
 - [ ] **Progressive Distillation (`BASB Style`)**: Automated weekly cleanup to move stale items to "Archive/Stale" and generate progress summaries.
 
-### High-Performance Bulk Operations (Forensics Phase 2.0)
-- [ ] **Atomic Bulk Tagging**: Use native `/tags.js` for O(1) multi-tagging.
-- [ ] **Native Bulk Re-parenting**: Use `/move.json` for complex reorganization without iterative calls.
-- [ ] **Global Search 2.0**: Replace iterating playlist search with native `/search/everywhere.json`.
-- [ ] **Task Styling API**: Implement tool for setting Priority (marks) and Boldness via native `details` endpoint.
+### High-Performance Bulk Operations (Shipped 2026-02-07)
+- [x] **Atomic Bulk Tagging**: Use native `/tags.js` for O(1) multi-tagging.
+- [x] **Native Bulk Re-parenting**: Use `/move.json` for complex reorganization without iterative calls.
+- [x] **Global Search 2.0**: Replace iterating playlist search with native `/search/everywhere.json`.
+- [x] **Task Styling API**: Implement tool for setting Priority (marks) and Boldness via native `details` endpoint.
 
 ---
 

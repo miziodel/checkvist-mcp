@@ -143,7 +143,10 @@ async def test_triage_inbox_tool(mock_client):
 @pytest.mark.asyncio
 async def test_search_tasks_includes_metadata(mock_client):
     """Verify search_tasks returns breadcrumbs and [N], [C], [F] indicators."""
-    # Mock tasks: parent (matches query) + child (to trigger children_map)
+    # Mock search_global to return the tasks
+    mock_client.search_global.return_value = [
+        {"id": 101, "content": "Auth Module", "checklist_id": 999, "comments_count": 2, "notes_count": 1}
+    ]
     mock_client.get_tasks.side_effect = lambda l_id: [
         {"id": 101, "content": "Auth Module", "parent_id": None, "list_id": 999, "comments_count": 2, "notes_count": 1},
         {"id": 102, "content": "Child", "parent_id": 101, "list_id": 999}
@@ -316,3 +319,27 @@ async def test_get_task_list_response_handled(mock_client):
     data = json.loads(result)
     assert data["success"] is True
     assert "Task in List" in data["data"]["details"]
+@pytest.mark.asyncio
+async def test_bulk_tag_tasks_tool(mock_client):
+    from src.server import bulk_tag_tasks
+    result = await bulk_tag_tasks(list_id="100", task_ids=["101", "102"], tags="tag1,tag2")
+    data = json.loads(result)
+    assert data["success"] is True
+    mock_client.bulk_tag_tasks.assert_called_with(100, [101, 102], "tag1,tag2")
+
+@pytest.mark.asyncio
+async def test_bulk_move_tasks_tool(mock_client):
+    from src.server import bulk_move_tasks
+    result = await bulk_move_tasks(list_id="100", task_ids=["101", "102"], target_list_id="200")
+    data = json.loads(result)
+    assert data["success"] is True
+    mock_client.bulk_move_tasks.assert_called_with(100, [101, 102], 200, None)
+
+@pytest.mark.asyncio
+async def test_set_task_priority_styling(mock_client):
+    # This should use update_task which in turn should trigger styling in the service/client
+    result = await update_task(list_id="100", task_id="101", priority=1)
+    data = json.loads(result)
+    assert data["success"] is True
+    # The client's set_task_styling should be called eventually
+    mock_client.set_task_styling.assert_called_with(100, 101, mark="fg1")

@@ -49,77 +49,127 @@ class CheckvistService:
         self.list_cache.pop("lists", None)
 
     async def search_tasks(self, query: str) -> List[Dict[str, Any]]:
-        """Enhanced search: Optimized N+1 and checks tags (Fix BUG-005)."""
+        """Enhanced search using Checkvist's native global index."""
         client = await self._get_authed_client()
-        lists = await self.get_checklists()
         
+        # Use high-performance global search
+        raw_results = await client.search_global(query)
+        
+        # Enrich results with breadcrumbs and indicators
         all_matches = []
-        query_lower = query.lower()
         
-        # Step 1: Parallel fetching with concurrency limit
-        semaphore = asyncio.Semaphore(5)
+        # Group results by checklist to fetch trees efficiently
+        by_list = {}
+        for r in raw_results:
+            if isinstance(r, str):
+                logger.warning(f"Unexpected search result type: string '{r}'")
+                continue
+            l_id = r.get("checklist_id")
+            if l_id:
+                if l_id not in by_list: by_list[l_id] = []
+                by_list[l_id].append(r)
         
-        async def process_list(cl):
-            async with semaphore:
+        for l_id, tasks in by_list.items():
+            try:
+                # Fetch full list to build breadcrumbs efficiently
+                all_tasks = await client.get_tasks(l_id)
+                task_map = {t["id"]: t for t in all_tasks}
+                
+                # Pre-calculate children count
+                children_map = {}
+                for t in all_tasks:
+                    pid = t.get("parent_id")
+                    if pid:
+                        children_map[pid] = children_map.get(pid, 0) + 1
+                
+                list_name = await self.get_list_name(l_id)
+                
+                for task in tasks:
+                    t_id = task["id"]
+                    # Indicators
+                    notes_count = task.get("notes_count", 0)
+                    comments_count = task.get("comments_count", 0)
+                    child_count = children_map.get(t_id, 0)
+                    
+                    indicators = []
+                    if notes_count > 0: indicators.append("[N]")
+                    if comments_count > 0: indicators.append("[C]")
+                    if child_count > 0: indicators.append(f"[F: {child_count}]")
+                    ind_str = " ".join(indicators) + " " if indicators else ""
+                    
+                    # Metadata string
+                    meta = []
+                    priority = task.get('priority')
+                    if priority is not None and int(priority) > 0: 
+                        meta.append(f"!{priority}")
+                    if task.get('due_date'): meta.append(f"^{task['due_date']}")
+                    tag_list = self._parse_tags(task.get("tags"))
+                    for tag in tag_list:
+                         if tag != "deleted": meta.append(f"#{tag}")
+                    meta_str = " " + " ".join(meta) if meta else ""
+                    
+                    task["list_name"] = list_name
+                    task["list_id"] = l_id
+                    task["breadcrumb"] = f"{ind_str}{self._build_breadcrumb_from_map(t_id, task_map)}{meta_str}"
+                    all_matches.append(task)
+            except Exception as e:
+                logger.error(f"Search enrichment failed for list {l_id}: {e}")
+                # Fallback: add raw results if enrichment fails
+                for task in tasks:
+                    task["list_name"] = "Unknown"
+                    task["list_id"] = l_id
+                    task["breadcrumb"] = task.get("content", "Unknown")
+                    all_matches.append(task)
+                    
+        if not all_matches and len(query) >= 3:
+            logger.info(f"Global search returned no results for '{query}', falling back to local list iteration.")
+            lists = await self.get_checklists()
+            
+            async def process_list_local(cl):
                 try:
                     tasks = await client.get_tasks(cl["id"])
-                    # Local map for breadcrumbs
-                    task_map = {t["id"]: t for t in tasks}
-                    
-                    # Pre-calculate children count
-                    children_map = {}
-                    for t in tasks:
-                        pid = t.get("parent_id")
-                        if pid:
-                            children_map[pid] = children_map.get(pid, 0) + 1
-                    
+                    query_lower = query.lower()
                     matches = []
+                    task_map = {t["id"]: t for t in tasks}
                     for task in tasks:
                         content_match = query_lower in task.get("content", "").lower()
-                        id_match = str(task["id"]) == query.strip()
                         tag_list = self._parse_tags(task.get("tags"))
                         tag_match = any(query_lower in t.lower() for t in tag_list)
-                        
-                        if content_match or tag_match or id_match:
-                            notes_count = task.get("notes_count", 0)
-                            comments_count = task.get("comments_count", 0)
-                            child_count = children_map.get(task["id"], 0)
-                            
-                            indicators = []
-                            if notes_count > 0: indicators.append("[N]")
-                            if comments_count > 0: indicators.append("[C]")
-                            if child_count > 0: indicators.append(f"[F: {child_count}]")
-                            
-                            ind_str = " ".join(indicators) + " " if indicators else ""
-                            
-                            meta = []
-                            priority = task.get('priority')
-                            if priority is not None and int(priority) > 0: 
-                                meta.append(f"!{priority}")
-                            if task.get('due_date'): meta.append(f"^{task['due_date']}")
-                            for tag in tag_list:
-                                 if tag != "deleted": meta.append(f"#{tag}")
-                            
-                            meta_str = " " + " ".join(meta) if meta else ""
+                        if content_match or tag_match:
                             task["list_name"] = cl["name"]
                             task["list_id"] = cl["id"]
-                            task["has_notes"] = notes_count > 0
-                            task["has_comments"] = comments_count > 0
-                            task["child_count"] = child_count
-                            
-                            breadcrumb = self._build_breadcrumb_from_map(task["id"], task_map)
-                            task["breadcrumb"] = f"{ind_str}{breadcrumb}{meta_str}"
+                            task["breadcrumb"] = self._build_breadcrumb_from_map(task["id"], task_map)
                             matches.append(task)
                     return matches
-                except Exception as e:
-                    logger.error(f"Search failed for list {cl['id']}: {e}")
-                    return []
+                except: return []
 
-        results = await asyncio.gather(*[process_list(cl) for cl in lists])
-        for matches in results:
-            all_matches.extend(matches)
-                
-        return all_matches[:10] # Cap to 10 context-rich results for better focus
+            local_results = await asyncio.gather(*[process_list_local(cl) for cl in lists])
+            for matches in local_results:
+                all_matches.extend(matches)
+                    
+        return all_matches[:10]
+
+    async def bulk_tag_tasks(self, list_id: int, task_ids: List[int], tags: str):
+        """Service wrapper for bulk tagging."""
+        client = await self._get_authed_client()
+        return await client.bulk_tag_tasks(list_id, task_ids, tags)
+
+    async def bulk_move_tasks(self, list_id: int, task_ids: List[int], target_list_id: int, target_parent_id: int = None):
+        """Service wrapper for bulk moving."""
+        client = await self._get_authed_client()
+        return await client.bulk_move_tasks(list_id, task_ids, target_list_id, target_parent_id)
+
+    async def set_task_styling_by_priority(self, list_id: int, task_id: int, priority: int):
+        """Maps numeric priority to visual styling (marks)."""
+        client = await self._get_authed_client()
+        # Mapping: 1->fg1 (Red), 2->fg2 (Orange), 3->fg3 (Green), etc.
+        # Checkvist usually supports up to fg9 (grey/neutral)
+        if 1 <= priority <= 9:
+            mark = f"fg{priority}"
+            return await client.set_task_styling(list_id, task_id, mark=mark)
+        elif priority == 0:
+            return await client.set_task_styling(list_id, task_id, mark="fg9")
+        return None
 
     async def get_task_enriched(self, list_id: int, task_id: int, include_children: bool = False, depth: int = 2) -> Dict[str, Any]:
         """Fetch task details including notes, comments, and optional child tree."""

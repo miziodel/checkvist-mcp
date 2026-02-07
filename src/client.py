@@ -1,5 +1,6 @@
 import httpx
 import logging
+from typing import List, Any, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -292,3 +293,46 @@ class CheckvistClient:
         # Limit results to avoid token explosion
         return all_matches[:20]
 
+    async def search_global(self, query: str):
+        """ Global search using Checkvist's native index. """
+        return await self._handle_request("GET", "/search/everywhere.json", params={"what": query})
+
+    async def bulk_tag_tasks(self, list_id: int, task_ids: List[int], tags: str):
+        """ 
+        Apply tags to multiple tasks in a single atomic transaction.
+        Uses the discovered /tags.js endpoint.
+        """
+        if not task_ids:
+            return {"status": "ok", "message": "No tasks to tag"}
+            
+        # The UI uses the first task_id in the path
+        base_task_id = task_ids[0]
+        data = {
+            "task_ids": ",".join(map(str, task_ids)),
+            "tags": tags
+        }
+        return await self._handle_request("POST", f"/checklists/{list_id}/tasks/{base_task_id}/tags.js", data=data)
+
+    async def bulk_move_tasks(self, list_id: int, task_ids: List[int], target_list_id: int, target_parent_id: int = None):
+        """
+        Move multiple tasks to a new list/parent using native move.json endpoint.
+        """
+        data = {
+            "move_to": target_list_id,
+            "task_ids[]": task_ids
+        }
+        if target_parent_id:
+            data["parent_id"] = target_parent_id
+            
+        return await self._handle_request("POST", f"/checklists/{list_id}/tasks/move.json", data=data)
+
+    async def set_task_styling(self, list_id: int, task_id: int, mark: str = None):
+        """
+        Set styling (marks/colors) for a task.
+        mark: fg1 (red), fg2 (orange), fg3 (green), ..., fg9 (grey/neutral)
+        """
+        data = {
+            "details[id]": task_id,
+            "details[mark]": mark
+        }
+        return await self._handle_request("POST", "/details", data=data)
