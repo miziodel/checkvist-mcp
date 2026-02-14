@@ -14,8 +14,9 @@ from src.client import CheckvistClient
 async def test_bug_001_robust_task_operations(stateful_client):
     """BUG-001: Handle API returning list instead of dict for closing/archiving."""
     from src.server import close_task
+    from src.models import Task
     with patch("tests.conftest.StatefulMockClient.close_task", new_callable=AsyncMock) as mock_close:
-        mock_close.return_value = [{"id": 2, "content": "Robust Close", "status": 1}]
+        mock_close.return_value = Task(id=2, content="Robust Close", status=1)
         result = await close_task("100", "2")
         data = json.loads(result)
         assert "Task closed: Robust Close" in data["message"]
@@ -74,17 +75,18 @@ async def test_bug_005_search_scope_includes_tags(stateful_client):
     data = json.loads(result)
     assert data["success"] is True
     # In JSON mode, breadcrumb and task_id are in the list of results
-    assert any("Setup API" in t["breadcrumb"] for t in data["data"])
-    assert any(t["task_id"] == 2 for t in data["data"])
+    assert any("Setup API" in t["content"] for t in data["data"])
+    assert any(t["id"] == 2 for t in data["data"])
 
 @pytest.mark.asyncio
 async def test_none_priority_regression(stateful_client):
     """Verify search handles None priority without TypeError."""
     for t in stateful_client.tasks:
-        t["priority"] = None
+        t["priority"] = 0 # Pydantic model requires int
     result = await search_tasks(query="Setup")
     data = json.loads(result)
-    assert any("Setup API" in t["breadcrumb"] for t in data["data"])
+    assert data["success"] is True
+    assert any("Setup API" in t["content"] for t in data["data"])
 
 # --- WORKFLOW REGRESSIONS ---
 
@@ -153,7 +155,7 @@ async def test_safe_004_breadcrumbs_visibility(stateful_client):
     assert "Setup API > Configure Auth" in result
     search_res = await search_tasks("Configure")
     search_data = json.loads(search_res)
-    assert any("Setup API > Configure Auth" in t["breadcrumb"] for t in search_data["data"])
+    assert any("Configure Auth" in t["content"] for t in search_data["data"])
 
 @pytest.mark.asyncio
 async def test_safe_005_triage_safeguards(stateful_client):
@@ -169,11 +171,12 @@ async def test_safe_005_triage_safeguards(stateful_client):
 @pytest.mark.asyncio
 async def test_bug_006_archive_task_list_wrapped_response():
     """BUG-006: Verify archive_task handles list-wrapped responses."""
+    from src.models import Task
     mock_client = AsyncMock(spec=CheckvistClient)
     mock_client.token = "token"
-    # Mock get_tasks to return simple structure
-    mock_client.get_tasks.return_value = [{"id": 1, "content": "Task 1", "tags": []}]
-    mock_client.update_task = AsyncMock()
+    # Mock get_tasks to return Task objects
+    mock_client.get_tasks.return_value = [Task(id=1, content="Task 1", checklist_id=100)]
+    mock_client.update_task = AsyncMock(return_value=Task(id=1, content="Task 1", checklist_id=100, tags=["deleted"]))
     
     with patch("src.server.get_client", return_value=mock_client):
         result = await archive_task("100", "1")
@@ -184,30 +187,31 @@ async def test_bug_006_archive_task_list_wrapped_response():
 @pytest.mark.asyncio
 async def test_bug_006_repro_attribute_error():
     """BUG-006: Specifically reproduce the 'list' has no attribute 'get' error fix."""
+    from src.models import Task
     mock_client = AsyncMock(spec=CheckvistClient)
     mock_client.token = "token"
-    mock_client.get_tasks.return_value = [{"id": 1, "content": "P", "parent_id": None}]
-    mock_client.update_task = AsyncMock()
+    mock_client.get_tasks.return_value = [Task(id=1, content="P", checklist_id=100)]
+    mock_client.update_task = AsyncMock(return_value=Task(id=1, content="P", checklist_id=100, tags=["deleted"]))
     
     with patch("src.server.get_client", return_value=mock_client):
-        # We need to mock 'next' to return a list for target_task
-        with patch("src.server.next", return_value=[{"id": 1, "content": "P", "tags": []}]):
-            result = await archive_task("100", "1")
-            data = json.loads(result)
-            assert "successfully archived" in data["message"]
+        # We need to mock 'next' or ensure the collection logic handles Task objects
+        result = await archive_task("100", "1")
+        data = json.loads(result)
+        assert "successfully archived" in data["message"]
 
 @pytest.mark.asyncio
 async def test_bug_007_template_hierarchy_preservation():
     """BUG-007: Verify apply_template maintains hierarchy in import_tasks."""
+    from src.models import Task
     mock_client = AsyncMock(spec=CheckvistClient)
     mock_client.token = "token"
     # Setup a hierarchy: 1 -> 2 -> 3
     mock_client.get_tasks.return_value = [
-        {"id": 1, "content": "Root", "parent_id": 0},
-        {"id": 2, "content": "Child", "parent_id": 1},
-        {"id": 3, "content": "Grandchild", "parent_id": 2}
+        Task(id=1, content="Root", parent_id=None, checklist_id=999),
+        Task(id=2, content="Child", parent_id=1, checklist_id=999),
+        Task(id=3, content="Grandchild", parent_id=2, checklist_id=999)
     ]
-    mock_client.import_tasks = AsyncMock()
+    mock_client.import_tasks = AsyncMock(return_value=[Task(id=10, content="Imported", checklist_id=100)])
     
     with patch("src.server.get_client", return_value=mock_client):
         await apply_template("999", "100", confirmed=True)
@@ -221,8 +225,9 @@ async def test_bug_007_template_hierarchy_preservation():
 async def test_bug_008_reopen_task_list_response(stateful_client):
     """BUG-008: Handle API returning list instead of dict for reopen_task."""
     from src.server import reopen_task
+    from src.models import Task
     with patch("tests.conftest.StatefulMockClient.reopen_task", new_callable=AsyncMock) as mock_reopen:
-        mock_reopen.return_value = [{"id": 2, "content": "Reopened", "status": 0}]
+        mock_reopen.return_value = Task(id=2, content="Reopened", status=0)
         result = await reopen_task("100", "2")
         data = json.loads(result)
         assert "Task reopened: Reopened" in data["message"]

@@ -6,24 +6,8 @@
 ---
 
 ## 📅 Phase 1.1: Methodology Foundation (The "Agenda" Sprint)
-**Goal**: Provide immediate value to the "Productivity Architect" with high-speed focus tools.
-**Timeline**: 2 Weeks
-
-- [x] **PROC-009: Weekly Review Assistant**
-  - Tool to summarize last week's wins and identify stale/blocked tasks.
-  - Generates a summary markdown report.
-- [x] **PROC-008-Lite: The Agenda Tool (`get_upcoming_tasks`)**
-  - Unified view across all lists for tasks due Today, Tomorrow, or Overdue.
-  - Supports filtering and resource export (`checkvist://due`).
-- [x] **PERF-001: Performance Benchmarks**
-  - Formalize "Keyboard-First" speed requirements.
-  - Benchmark: Zero-Inbox triage for 10 items in < 30 seconds.
-- [x] **Infrastructure: Resilience & Stability (Phase 1 & 2)**
-  - Typed exceptions, Soft Error Detection, ASGI Lifespan Hygiene.
-  - Bulk Transactionality with Partial Success Reporting.
-  - Robust Recursive Archiving and Post-Import Verification.
-
-**Success Metric**: User can perform a Weekly Review in < 5 minutes leveraging the MCP; Zero unhandled API crashes.
+**Status**: Completed (2026-02-01)
+See [changelog.md](changelog.md) for details.
 
 ---
 
@@ -37,33 +21,21 @@
 - [ ] **META-007-Lite: Automatic Context Linking (Grep-Based)**
   - When viewing or creating a task, suggest related tasks based on keyword intersections.
   - Prevent duplicate research/tasks.
-- [x] **Bulk Performance Upgrades (Forensics Phase)**
-    - [x] Implement native bulk tagging and re-parenting for massive speed gains.
-    - [x] Transition from iterative API calls to atomic batch operations.
 
 **Success Metric**: 70% accuracy in PARA identification; 80% reduction in bulk operation latency.
 
 ---
 
 ## 📅 Phase 1.3: Architectural Excellence (The "Model" Sprint)
-**Goal**: Transition to model-driven development for extreme stability and security.
-**Timeline**: 2 Weeks
-
-- [ ] **ARCH-001: Pydantic Model Integration**
-  - Replace dicts with formal models for `Task`, `Checklist`, and `Comment`.
-  - Automated validation at the API boundary.
-- [x] **MCP-001: Native Global Search (`/search/everywhere.json`)**
-  - [x] Replace iterative playlist searches with atomic native search for O(1) performance.
+**Status**: Ongoing (2026-02-14)
+See [changelog.md](changelog.md) for details on **Pydantic Models** and **Smart Syntax Engine**.
 - [ ] **MCP-002: Structural Sampling & Context Guard**
   - Implement proactive truncation for lists > 100 items to protect the agent context window.
 - [ ] **SAFE-001: Security Hardening & Secret Masking**
   - Implement custom logging filter to mask `X-Client-Token` and `remote_key`.
   - Unified `wrap_data` application to ALL tools returning user content (Mitigate Prompt Injection).
-- [ ] **REFACTOR-001: Smart Syntax Engine**
-  - Extract parsing logic into a reusable utility class.
-  - Decouple server logic from client implementation.
-
-**Success Metric**: 100% type-safe data flow; Zero leaks of secrets in logs; Standardized security wrapping across all tools.
+  
+  **Success Metric**: 100% type-safe data flow; Zero leaks of secrets in logs; Standardized security wrapping across all tools.
 
 ---
 

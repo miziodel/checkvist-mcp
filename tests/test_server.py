@@ -7,6 +7,8 @@ from src.server import mcp, ARCHIVE_TAG
 from src.client import CheckvistClient
 from src.response import StandardResponse
 import asyncio
+from src.syntax import SyntaxParser
+from src.models import Task, Checklist
 
 def test_standard_response_success():
     """Verify success response formatting."""
@@ -42,7 +44,7 @@ async def test_list_checklists_resource():
     mock_client = AsyncMock(spec=CheckvistClient)
     mock_client.token = "mock_token"
     mock_client.authenticate.return_value = True
-    mock_client.get_checklists.return_value = [{"id": 1, "name": "List 1"}]
+    mock_client.get_checklists.return_value = [Checklist(id=1, name="List 1")]
     
     with patch("src.server.get_client", return_value=mock_client):
         from src.server import list_checklists
@@ -53,7 +55,7 @@ async def test_list_checklists_resource():
 async def test_get_list_content_resource():
     mock_client = AsyncMock(spec=CheckvistClient)
     mock_client.token = "mock_token"
-    task = {"id": 10, "content": "Task 1", "status": 0, "parent_id": None}
+    task = Task(id=10, content="Task 1", status=0, parent_id=None)
     mock_client.get_tasks.return_value = [task]
     
     with patch("src.server.get_client", return_value=mock_client):
@@ -81,3 +83,47 @@ async def test_review_data_wrapping(stateful_client):
     assert "Review Stats (daily)" in data["message"]
     # Check if data contains list stats
     assert any(l["list"] == "Work" for l in data["data"])
+
+# --- SYNTAX PARSER TESTS ---
+
+def test_syntax_extract_tags():
+    parser = SyntaxParser()
+    text = "Task with #tag1 and #tag2"
+    clean, tags = parser.extract_tags(text)
+    assert clean == "Task with and"
+    assert "tag1" in tags
+    assert "tag2" in tags
+
+def test_syntax_extract_priority():
+    parser = SyntaxParser()
+    assert parser.extract_priority("Urgent !1") == ("Urgent", 1)
+    assert parser.extract_priority("Normal !2") == ("Normal", 2)
+    assert parser.extract_priority("Low !3") == ("Low", 3)
+    assert parser.extract_priority("None") == ("None", 0)
+
+def test_syntax_extract_due_date():
+    parser = SyntaxParser()
+    assert parser.extract_due_date("Do it ^tomorrow") == ("Do it", "tomorrow")
+    assert parser.extract_due_date("Fixed ^2024-12-31") == ("Fixed", "2024-12-31")
+
+def test_syntax_extract_user():
+    parser = SyntaxParser()
+    assert parser.extract_user("Ask @mizio") == ("Ask", "mizio")
+
+def test_syntax_full_parse():
+    parser = SyntaxParser()
+    content = "Meeting @boss #work !1 ^today"
+    result = parser.parse(content)
+    assert result.content == "Meeting"
+    assert result.priority == 1
+    assert "work" in result.tags
+    assert result.user == "boss"
+    assert result.due == "today"
+
+def test_syntax_has_symbols():
+    parser = SyntaxParser()
+    assert parser.has_symbols("Simple task") is False
+    assert parser.has_symbols("Task #tag") is True
+    assert parser.has_symbols("Task !1") is True
+    assert parser.has_symbols("Task @user") is True
+    assert parser.has_symbols("Task ^date") is True

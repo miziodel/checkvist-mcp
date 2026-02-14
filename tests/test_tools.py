@@ -7,20 +7,21 @@ from src.server import (
     close_task, create_list, search_tasks, get_tree, resurface_ideas,
     get_list_content, list_checklists, get_upcoming_tasks, get_task
 )
+from src.models import Task, Checklist
 
 # --- MOCK DATA ---
 MOCK_LISTS = [
-    {"id": 100, "name": "Server MCP - Development", "public": False},
-    {"id": 200, "name": "Server Maintenance", "public": False},
-    {"id": 888, "name": "Home", "public": False},
-    {"id": 999, "name": "Inbox", "public": False},
-    {"id": 300, "name": "Notes", "public": False}
+    Checklist(id=100, name="Server MCP - Development", public=False),
+    Checklist(id=200, name="Server Maintenance", public=False),
+    Checklist(id=888, name="Home", public=False),
+    Checklist(id=999, name="Inbox", public=False),
+    Checklist(id=300, name="Notes", public=False)
 ]
 
 MOCK_TASKS = [
-    {"id": 101, "content": "Auth Module", "parent_id": None, "priority": 1, "list_id": 999, "tags": []},
-    {"id": 102, "content": "Implement Login", "parent_id": 101, "status": 0, "list_id": 100},
-    {"id": 103, "content": "Setup OAuth", "parent_id": 101, "status": 1, "list_id": 100}
+    Task(id=101, content="Auth Module", parent_id=None, priority=1, checklist_id=999, tags=[]),
+    Task(id=102, content="Implement Login", parent_id=101, status=0, checklist_id=100),
+    Task(id=103, content="Setup OAuth", parent_id=101, status=1, checklist_id=100)
 ]
 
 @pytest.fixture
@@ -33,15 +34,15 @@ def mock_client(mocker):
     client_mock.token = "mock_token"
     client_mock.get_checklists.return_value = MOCK_LISTS
     # Default side_effect for most tests
-    client_mock.get_tasks.side_effect = lambda l_id: [t for t in MOCK_TASKS if t.get("list_id") == int(l_id)]
-    client_mock.add_task.return_value = {"id": 106, "content": "New Task"}
+    client_mock.get_tasks.side_effect = lambda l_id: [t for t in MOCK_TASKS if t.checklist_id == int(l_id)]
+    client_mock.add_task.return_value = Task(id=106, content="New Task", checklist_id=int(100))
     client_mock.move_task_hierarchy.return_value = {"status": "ok"}
-    client_mock.get_task.return_value = {"id": 101, "content": "Auth Module", "checklist_id": 999, "priority": 1}
-    client_mock.move_task.return_value = {"id": 102, "content": "Implement Login", "parent_id": 999}
-    client_mock.import_tasks.return_value = [{"id": 201, "content": "Imported 1"}]
+    client_mock.get_task.return_value = Task(id=101, content="Auth Module", checklist_id=999, priority=1)
+    client_mock.move_task.return_value = Task(id=102, content="Implement Login", checklist_id=int(999), parent_id=999)
+    client_mock.import_tasks.return_value = [Task(id=201, content="Imported 1", checklist_id=int(100))]
     client_mock.add_note.return_value = {"id": 1, "comment": "Mock Note"}
-    client_mock.update_task.return_value = {"id": 101, "priority": 1}
-    client_mock.create_checklist.return_value = {"id": 500, "name": "New Project"}
+    client_mock.update_task.return_value = Task(id=101, priority=1, content="Auth Module", checklist_id=int(999))
+    client_mock.create_checklist.return_value = Checklist(id=500, name="New Project")
     
     mocker.patch("src.server.get_client", return_value=client_mock)
     client_mock.get_due_tasks.return_value = [
@@ -145,11 +146,11 @@ async def test_search_tasks_includes_metadata(mock_client):
     """Verify search_tasks returns breadcrumbs and [N], [C], [F] indicators."""
     # Mock search_global to return the tasks
     mock_client.search_global.return_value = [
-        {"id": 101, "content": "Auth Module", "checklist_id": 999, "comments_count": 2, "notes_count": 1}
+        Task(id=101, content="Auth Module", checklist_id=999, comments_count=2, notes_count=1)
     ]
     mock_client.get_tasks.side_effect = lambda l_id: [
-        {"id": 101, "content": "Auth Module", "parent_id": None, "list_id": 999, "comments_count": 2, "notes_count": 1},
-        {"id": 102, "content": "Child", "parent_id": 101, "list_id": 999}
+        Task(id=101, content="Auth Module", parent_id=None, list_id=999, comments_count=2, notes_count=1),
+        Task(id=102, content="Child", parent_id=101, list_id=999)
     ]
     result = await search_tasks(query="Auth")
     data = json.loads(result)
@@ -164,16 +165,16 @@ async def test_search_tasks_includes_metadata(mock_client):
 @pytest.mark.asyncio
 async def test_get_task_details_tool(mock_client):
     """Verify get_task tool returns notes, comments, and breadcrumbs."""
-    mock_client.get_task.return_value = {
-        "id": 101, 
-        "content": "Auth Module", 
-        "checklist_id": 999,
-        "notes": "System auth specs",
-        "comments": [{"comment": "Fixed bug #1"}, {"comment": "Added OAuth"}]
-    }
+    mock_client.get_task.return_value = Task(
+        id=101, 
+        content="Auth Module", 
+        checklist_id=999,
+        notes="System auth specs",
+        comments=[{"comment": "Fixed bug #1"}, {"comment": "Added OAuth"}]
+    )
     # Mock tasks for breadcrumb resolution
     mock_client.get_tasks.side_effect = lambda l_id: [
-        {"id": 101, "content": "Auth Module", "parent_id": None}
+        Task(id=101, content="Auth Module", parent_id=None, checklist_id=999)
     ]
     
     result = await get_task(list_id="999", task_id="101")
@@ -186,11 +187,11 @@ async def test_get_task_details_tool(mock_client):
 @pytest.mark.asyncio
 async def test_get_task_with_children_tree(mock_client):
     """Verify get_task(include_children=True) returns the sub-tree."""
-    mock_client.get_task.return_value = {"id": 1, "content": "Parent", "checklist_id": 100}
+    mock_client.get_task.return_value = Task(id=1, content="Parent", checklist_id=100)
     mock_client.get_tasks.side_effect = lambda l_id: [
-        {"id": 1, "content": "Parent", "parent_id": None},
-        {"id": 2, "content": "Child 1", "parent_id": 1},
-        {"id": 3, "content": "Child 2", "parent_id": 1}
+        Task(id=1, content="Parent", parent_id=None, checklist_id=100),
+        Task(id=2, content="Child 1", parent_id=1, checklist_id=100),
+        Task(id=3, content="Child 2", parent_id=1, checklist_id=100)
     ]
     
     result = await get_task(list_id="100", task_id="1", include_children=True)
@@ -220,7 +221,7 @@ async def test_move_task_same_list(mock_client):
 
 @pytest.mark.asyncio
 async def test_close_task_tool(mock_client):
-    mock_client.close_task.return_value = {"id": 102, "content": "Closing...", "status": 1}
+    mock_client.close_task.return_value = Task(id=102, content="Closing...", status=1, checklist_id=100)
     result = await close_task(list_id="100", task_id="102")
     data = json.loads(result)
     assert data["success"] is True
@@ -241,9 +242,9 @@ async def test_create_list_tool(mock_client):
 async def test_get_tree_depth(mock_client):
     # Mock data with hierarchy
     tasks = [
-        {"id": 1, "content": "Root", "parent_id": None, "status": 0, "list_id": 100},
-        {"id": 2, "content": "Child", "parent_id": 1, "status": 0, "list_id": 100},
-        {"id": 3, "content": "Grandchild", "parent_id": 2, "status": 0, "list_id": 100},
+        Task(id=1, content="Root", parent_id=None, status=0, checklist_id=100),
+        Task(id=2, content="Child", parent_id=1, status=0, checklist_id=100),
+        Task(id=3, content="Grandchild", parent_id=2, status=0, checklist_id=100),
     ]
     mock_client.get_tasks.side_effect = lambda l_id: tasks if int(l_id) == 100 else []
     
@@ -312,7 +313,7 @@ async def test_get_task_standard_response_crash_repro(mock_client, mocker):
 async def test_get_task_list_response_handled(mock_client):
     """Verify get_task handles cases where the API returns a list instead of a dict."""
     # Mock get_task to return a list (polymorphic response)
-    mock_client.get_task.return_value = [{"id": 101, "content": "Task in List", "checklist_id": 999}]
+    mock_client.get_task.return_value = [Task(id=101, content="Task in List", checklist_id=999)]
     
     # This should succeed by extracting the first element
     result = await get_task(list_id="999", task_id="101")

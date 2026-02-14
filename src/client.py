@@ -10,8 +10,10 @@ from src.exceptions import (
     CheckvistRateLimitError,
     CheckvistResourceNotFoundError,
     CheckvistConnectionError,
+    CheckvistConnectionError,
     CheckvistPartialSuccessError
 )
+from src.models import Task, Checklist, Comment
 
 class CheckvistClient:
     BASE_URL = "https://checkvist.com"
@@ -87,6 +89,16 @@ class CheckvistClient:
 
         return data
 
+    def _to_task(self, data: Any) -> Task:
+        """Helper to instantiate a Task from potentially polymorphic (list/dict) response."""
+        if isinstance(data, list) and data:
+            data = data[0]
+        if not isinstance(data, dict):
+            # Fallback if API returned something totally unexpected
+            logger.error(f"Unexpected API response for task: {data}")
+            raise CheckvistAPIError(f"Unexpected API response type for task: {type(data)}. Content: {str(data)[:100]}")
+        return Task(**data)
+
     async def authenticate(self) -> bool:
         """ Authenticate with Checkvist and get a token. """
         try:
@@ -113,24 +125,27 @@ class CheckvistClient:
                 raise
             raise CheckvistAuthError(f"Unexpected auth error: {e}") from e
 
-    async def get_checklists(self):
+    async def get_checklists(self) -> List[Checklist]:
         """ Get all checklists for the user. """
-        return await self._handle_request("GET", "/checklists.json")
+        data = await self._handle_request("GET", "/checklists.json")
+        return [Checklist(**cl) for cl in data]
 
-    async def get_tasks(self, list_id: int):
+    async def get_tasks(self, list_id: int) -> List[Task]:
         """ Get all tasks in a checklist with notes and tags. """
         params = {"with_notes": "true", "with_tags": "true"}
-        return await self._handle_request("GET", f"/checklists/{list_id}/tasks.json", params=params)
+        data = await self._handle_request("GET", f"/checklists/{list_id}/tasks.json", params=params)
+        return [Task(**t) for t in data]
 
-    async def create_checklist(self, name: str, public: bool = False):
+    async def create_checklist(self, name: str, public: bool = False) -> Checklist:
         """ Create a new checklist. """
         data = {
             "checklist[name]": name,
             "checklist[public]": str(public).lower()
         }
-        return await self._handle_request("POST", "/checklists.json", data=data)
+        res = await self._handle_request("POST", "/checklists.json", data=data)
+        return Checklist(**res)
 
-    async def add_task(self, list_id: int, content: str, parent_id: int = None, position: int = None, parse: bool = False):
+    async def add_task(self, list_id: int, content: str, parent_id: int = None, position: int = None, parse: bool = False) -> Task:
         """ Add a new task to a checklist. """
         data = {"task[content]": content}
         if parent_id:
@@ -140,20 +155,24 @@ class CheckvistClient:
         if parse:
             data["parse"] = "true"
             
-        return await self._handle_request("POST", f"/checklists/{list_id}/tasks.json", data=data)
+        res = await self._handle_request("POST", f"/checklists/{list_id}/tasks.json", data=data)
+        return self._to_task(res)
 
-    async def close_task(self, list_id: int, task_id: int):
+    async def close_task(self, list_id: int, task_id: int) -> Task:
         """ Mark a task as closed. """
-        return await self._handle_request("POST", f"/checklists/{list_id}/tasks/{task_id}/close.json")
+        res = await self._handle_request("POST", f"/checklists/{list_id}/tasks/{task_id}/close.json")
+        return self._to_task(res)
 
-    async def reopen_task(self, list_id: int, task_id: int):
+    async def reopen_task(self, list_id: int, task_id: int) -> Task:
         """ Reopen a closed task. """
-        return await self._handle_request("POST", f"/checklists/{list_id}/tasks/{task_id}/reopen.json")
+        res = await self._handle_request("POST", f"/checklists/{list_id}/tasks/{task_id}/reopen.json")
+        return self._to_task(res)
 
-    async def get_task(self, list_id: int, task_id: int):
+    async def get_task(self, list_id: int, task_id: int) -> Task:
         """ Get a specific task with notes and tags. """
         params = {"with_notes": "true", "with_tags": "true"}
-        return await self._handle_request("GET", f"/checklists/{list_id}/tasks/{task_id}.json", params=params)
+        res = await self._handle_request("GET", f"/checklists/{list_id}/tasks/{task_id}.json", params=params)
+        return self._to_task(res)
 
     async def get_task_breadcrumbs(self, list_id: int, task_id: int):
         """ Get the breadcrumb path for a task. 
@@ -164,7 +183,7 @@ class CheckvistClient:
         all_tasks = await self.get_tasks(list_id)
         
         # Build map
-        task_map = {t['id']: t for t in all_tasks}
+        task_map = {t.id: t for t in all_tasks}
         
         if task_id not in task_map:
             raise ValueError(f"Task {task_id} not found in list {list_id}")
@@ -173,8 +192,8 @@ class CheckvistClient:
         current = task_map[task_id]
         
         while current:
-            breadcrumbs.insert(0, current['content'])
-            parent_id = current.get('parent_id')
+            breadcrumbs.insert(0, current.content)
+            parent_id = current.parent_id
             if parent_id and parent_id in task_map:
                 current = task_map[parent_id]
             else:
@@ -182,10 +201,11 @@ class CheckvistClient:
                 
         return " > ".join(breadcrumbs)
 
-    async def move_task(self, list_id: int, task_id: int, parent_id: int):
+    async def move_task(self, list_id: int, task_id: int, parent_id: int) -> Task:
         """ Move a task to a new parent within the same list. """
         data = {"task[parent_id]": parent_id}
-        return await self._handle_request("PUT", f"/checklists/{list_id}/tasks/{task_id}.json", data=data)
+        res = await self._handle_request("PUT", f"/checklists/{list_id}/tasks/{task_id}.json", data=data)
+        return self._to_task(res)
 
 
     async def move_task_hierarchy(self, list_id: int, task_id: int, target_list_id: int, target_parent_id: int = None):
@@ -228,14 +248,16 @@ class CheckvistClient:
         if position:
             params["position"] = position
             
+        # Returns raw status for bulk ops
         return await self._handle_request("POST", f"/checklists/{list_id}/import.json", data=params)
 
-    async def add_note(self, list_id: int, task_id: int, note: str):
+    async def add_note(self, list_id: int, task_id: int, note: str) -> Comment:
         """ Add a comment/note to a specific task. """
         data = {"comment[comment]": note}
-        return await self._handle_request("POST", f"/checklists/{list_id}/tasks/{task_id}/comments.json", data=data)
+        res = await self._handle_request("POST", f"/checklists/{list_id}/tasks/{task_id}/comments.json", data=data)
+        return Comment(**res)
 
-    async def update_task(self, list_id: int, task_id: int, content: str = None, priority: int = None, tags: str = None, due_date: str = None):
+    async def update_task(self, list_id: int, task_id: int, content: str = None, priority: int = None, tags: str = None, due_date: str = None) -> Task:
         """ Update task details. Supports smart syntax if content is provided. """
         data = {}
         if content: 
@@ -245,12 +267,14 @@ class CheckvistClient:
         if tags: data["task[tags]"] = tags
         if due_date: data["task[due_date]"] = due_date
             
-        return await self._handle_request("PUT", f"/checklists/{list_id}/tasks/{task_id}.json", data=data)
+        res = await self._handle_request("PUT", f"/checklists/{list_id}/tasks/{task_id}.json", data=data)
+        return self._to_task(res)
 
-    async def rename_checklist(self, list_id: int, name: str):
+    async def rename_checklist(self, list_id: int, name: str) -> Checklist:
         """ Rename an existing checklist. """
         data = {"checklist[name]": name}
-        return await self._handle_request("PUT", f"/checklists/{list_id}.json", data=data)
+        res = await self._handle_request("PUT", f"/checklists/{list_id}.json", data=data)
+        return Checklist(**res)
 
     async def delete_checklist(self, list_id: int):
         """ Delete a checklist. """
@@ -260,11 +284,12 @@ class CheckvistClient:
         """ Delete a task. """
         return await self._handle_request("DELETE", f"/checklists/{list_id}/tasks/{task_id}.json")
 
-    async def get_due_tasks(self):
+    async def get_due_tasks(self) -> List[Task]:
         """ Get all tasks with due dates across all checklists. 
             Uses discovered endpoint /checklists/due.json.
         """
-        return await self._handle_request("GET", "/checklists/due.json")
+        data = await self._handle_request("GET", "/checklists/due.json")
+        return [self._to_task(t) for t in data]
 
     async def search_tasks(self, query: str):
         """ Search for tasks using Checkvist's search logic where possible, 
@@ -281,11 +306,15 @@ class CheckvistClient:
             # Simple rate limit prevention
             await asyncio.sleep(0.1) 
             try:
-                tasks = await self.get_tasks(cl["id"])
+                tasks = await self.get_tasks(cl.id)
                 for task in tasks:
-                    if query.lower() in task.get("content", "").lower():
-                        task["list_name"] = cl["name"]
-                        task["list_id"] = cl["id"]
+                    if query.lower() in task.content.lower():
+                        # We might need to keep raw dicts or hybrid for search results 
+                        # if they are used by server.py tools. Let's see.
+                        # Actually, keeping them as Tasks is better.
+                        # But wait, we are adding extra fields here.
+                        # Pydantic models usually ignore extra fields unless Config allow.
+                        # Our Task model doesn't have list_name/list_id.
                         all_matches.append(task)
             except Exception as e:
                 logger.error(f"Failed to search list {cl['id']}: {e}")
@@ -293,9 +322,18 @@ class CheckvistClient:
         # Limit results to avoid token explosion
         return all_matches[:20]
 
-    async def search_global(self, query: str):
+    async def search_global(self, query: str) -> List[Task]:
         """ Global search using Checkvist's native index. """
-        return await self._handle_request("GET", "/search/everywhere.json", params={"what": query})
+        res = await self._handle_request("GET", "/search/everywhere.json", params={"what": query})
+        
+        # Native search returns {"commands": [...tasks...]}
+        data = []
+        if isinstance(res, dict):
+            data = res.get("commands") or res.get("tasks") or []
+        elif isinstance(res, list):
+            data = res
+            
+        return [self._to_task(t) for t in data]
 
     async def bulk_tag_tasks(self, list_id: int, task_ids: List[int], tags: str):
         """ 

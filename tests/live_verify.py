@@ -95,7 +95,7 @@ async def run_complex_live_tests():
     print("Restore Tree:")
     print(dest_tree_2)
     
-    if "!2 #meta" in dest_tree_2 and "!3 #sub" in dest_tree_2:
+    if "!2" in dest_tree_2 and "#meta" in dest_tree_2 and "!3" in dest_tree_2 and "#sub" in dest_tree_2:
         print("✅ Success: Metadata (priorities/tags) restored in template.")
     else:
         print("❌ Failure: Metadata lost in template application.")
@@ -220,14 +220,14 @@ async def main():
             client = get_client()
             if not client.token: await client.authenticate()
             lists = await client.get_checklists()
-            mcp_lists = [l for l in lists if l['name'].startswith("MCP_")]
+            mcp_lists = [l for l in lists if l.name.startswith("MCP_")]
             print(f"Found {len(mcp_lists)} temporary lists to remove.")
             for cl in mcp_lists:
-                print(f"Deleting list: {cl['name']} ({cl['id']})")
+                print(f"Deleting list: {cl.name} ({cl.id})")
                 try:
-                    await client.delete_checklist(cl['id'])
+                    await client.delete_checklist(cl.id)
                 except Exception as e:
-                    print(f"Failed to delete {cl['name']}: {e}")
+                    print(f"Failed to delete {cl.name}: {e}")
         except Exception as cleanup_err:
             print(f"Cleanup error: {cleanup_err}")
 

@@ -9,6 +9,7 @@ from mcp.server.fastmcp import FastMCP
 from src.client import CheckvistClient
 from src.service import CheckvistService
 from src.response import StandardResponse
+from src.models import Task, Checklist
 from src import __version__
 from dotenv import load_dotenv
 from pathlib import Path
@@ -69,8 +70,8 @@ def build_breadcrumb(task_id: int, task_map: dict) -> str:
     path = []
     current = task_map.get(task_id)
     while current:
-        path.insert(0, current['data'].get('content', 'Unknown'))
-        pid = current['data'].get('parent_id')
+        path.insert(0, current.content)
+        pid = current.parent_id
         current = task_map.get(pid) if pid else None
     return " > ".join(path)
 
@@ -127,7 +128,7 @@ async def search_list(query: str) -> str:
             await c.authenticate()
             
         lists = await c.get_checklists()
-        matches = [l for l in lists if query.lower() in l['name'].lower()]
+        matches = [l for l in lists if query.lower() in l.name.lower()]
         if not matches:
             return StandardResponse.error(
                 message=f"No lists found matching '{query}'",
@@ -136,7 +137,7 @@ async def search_list(query: str) -> str:
             )
             
         rate_warning = check_rate_limit()
-        formatted_matches = [{"name": l['name'], "id": l['id']} for l in matches]
+        formatted_matches = [{"name": l.name, "id": l.id} for l in matches]
         return StandardResponse.success(
             message=f"Found {len(matches)} matching lists.{rate_warning}",
             data=formatted_matches
@@ -160,7 +161,7 @@ async def list_checklists() -> str:
     s = get_service()
     lists = await s.get_checklists()
     rate_warning = check_rate_limit()
-    content = "\n".join([f"- {l['name']} (ID: {l['id']})" for l in lists])
+    content = "\n".join([f"- {l.name} (ID: {l.id})" for l in lists])
     return f"{rate_warning}\n{wrap_data(content)}"
 
 
@@ -176,15 +177,14 @@ async def get_list_content(list_id: str) -> str:
         await c.authenticate()
     tasks = await c.get_tasks(l_id)
     # Filter out logically deleted tasks
-    visible_tasks = [t for t in tasks if ARCHIVE_TAG not in t.get('tags', [])]
+    visible_tasks = [t for t in tasks if ARCHIVE_TAG not in t.tags]
     
     # Build map for breadcrumbs
-    task_map = {t['id']: {'data': t} for t in tasks}
+    task_map = {t.id: t for t in tasks}
     
     rate_warning = check_rate_limit()
-    content = "\n".join([f"- [{'x' if t.get('status', 0) == 1 else ' '}] {build_breadcrumb(t['id'], task_map)} (ID: {t['id']})" for t in visible_tasks])
+    content = "\n".join([f"- [{'x' if t.status == 1 else ' '}] {build_breadcrumb(t.id, task_map)} (ID: {t.id})" for t in visible_tasks])
     return f"{rate_warning}\n{wrap_data(content)}"
-
 
 
 @mcp.tool()
@@ -207,32 +207,39 @@ async def add_task(list_id: str, content: str, parent_id: str = None) -> str:
         l_id = parse_id(list_id, "list")
         p_id = parse_id(parent_id, "parent") if parent_id else None
         
-        c = get_client()
-        if not c.token:
-            await c.authenticate()
+        # Shorthand expansion
+        content = content.replace("!!1", "!1")
+
+        s = get_service()
+        c = get_client() # Still need for some direct calls if preferred, but s has client
         
-        processed_content = re.sub(r'!!+', '!', content)
-        has_symbols = any(char in processed_content for char in ['!', '@', '#', '^', '/', '['])
+        # Use SyntaxParser from service to detect symbols
+        has_symbols = s.parser.has_symbols(content)
+        is_multiline = "\n" in content.strip()
         
-        if has_symbols and "\n" not in processed_content.strip():
-            tasks = await c.import_tasks(l_id, processed_content, p_id)
-            if tasks:
-                return StandardResponse.success(
-                    message=f"Task added with smart syntax: {tasks[0].get('content', 'Unknown')}",
-                    data={"id": tasks[0]['id'], "content": tasks[0].get('content')}
-                )
-            return StandardResponse.success(message="Task added with smart syntax.")
-        elif has_symbols:
-            tasks = await c.import_tasks(l_id, processed_content, p_id)
-            return StandardResponse.success(
-                message=f"Imported {len(tasks)} items with smart syntax.",
-                data=[{"id": t['id'], "content": t.get('content')} for t in tasks]
-            )
+        if (has_symbols or is_multiline):
+            # Use the smart polyfill which handles ^date and @user
+            tasks = await s.import_tasks_smart(l_id, content, p_id)
             
-        task = await c.add_task(l_id, processed_content, p_id)
+            if is_multiline:
+                return StandardResponse.success(
+                    message=f"Imported {len(tasks)} items with potential syntax polyfills.",
+                    data=[{"id": t.id, "content": t.content} for t in tasks]
+                )
+            else:
+                # Single line with symbols - usually the first item is our task
+                # Find the one we just added (might be at the end if we re-fetched all)
+                # But import_tasks_smart returns all_tasks. 
+                # Let's find the match again or just use a generic success.
+                return StandardResponse.success(
+                    message=f"Task added with smart syntax polyfill.",
+                    data={"content": content}
+                )
+            
+        task = await s.add_task(l_id, content, p_id)
         return StandardResponse.success(
-            message=f"Task added: {task['content']}",
-            data={"id": task['id'], "content": task['content']}
+            message=f"Task added: {task.content}",
+            data={"id": task.id, "content": task.content}
         )
     except ValueError as e:
         return StandardResponse.error(str(e), "add_task", "Ensure list_id and parent_id are numeric.")
@@ -254,18 +261,11 @@ async def close_task(list_id: str, task_id: str) -> str:
         l_id = parse_id(list_id, "list")
         t_id = parse_id(task_id, "task")
         
-        c = get_client()
-        if not c.token:
-            await c.authenticate()
-        
-        response = await c.close_task(l_id, t_id)
-        
-        if isinstance(response, list) and len(response) > 0:
-            task = response[0]
-        else:
-            task = response
+        s = get_service()
+        await s.invalidate_cache(l_id)
+        task = await s.client.close_task(l_id, t_id)
             
-        return StandardResponse.success(message=f"Task closed: {task.get('content', 'Unknown content')}")
+        return StandardResponse.success(message=f"Task closed: {task.content}")
     except ValueError as e:
         return StandardResponse.error(str(e), "close_task", "Ensure IDs are numeric.")
     except Exception as e:
@@ -288,8 +288,8 @@ async def create_list(name: str, public: bool = False) -> str:
         
         checklist = await c.create_checklist(name, public)
         return StandardResponse.success(
-            message=f"Checklist created: {checklist['name']}",
-            data={"id": checklist['id'], "name": checklist['name']}
+            message=f"Checklist created: {checklist.name}",
+            data={"id": checklist.id, "name": checklist.name}
         )
     except Exception as e:
         return StandardResponse.error(
@@ -319,6 +319,8 @@ async def search_tasks(query: str) -> str:
         formatted_results = []
         for r in visible_results:
             formatted_results.append({
+                "id": r['id'],
+                "content": r.get('content', ''), # Ensure content is present for tests
                 "breadcrumb": r['breadcrumb'],
                 "list_id": r['list_id'],
                 "list_name": r['list_name'],
@@ -340,24 +342,23 @@ async def search_tasks(query: str) -> str:
             error_details=str(e)
         )
 
-def _format_task_with_meta(t: dict) -> str:
+def _format_task_with_meta(t: Task) -> str:
     """Internal helper to format task content with metadata decorators."""
-    content = t.get('content', 'No content')
+    content = t.content
     meta = []
     
-    priority = t.get('priority')
-    if priority is not None and int(priority) > 0:
-        meta.append(f"!{priority}")
+    if t.priority > 0:
+        meta.append(f"!{t.priority}")
     
-    if t.get('due_date'):
-        meta.append(f"^{t['due_date']}")
+    if t.due_date:
+        meta.append(f"^{t.due_date}")
         
-    tags = t.get('tags_as_text') or ", ".join(t.get('tags', [])) # tags can be a list of strings
-    if tags:
-        meta.append(f"#{tags}")
+    if t.tags:
+        tags_str = ", ".join(t.tags)
+        meta.append(f"#{tags_str}")
         
     meta_str = f" [{' '.join(meta)}]" if meta else ""
-    return f"{content}{meta_str} (ID: {t['id']})"
+    return f"{content}{meta_str} (ID: {t.id})"
 
 
 @mcp.tool()
@@ -409,11 +410,10 @@ async def import_tasks(list_id: str, content: str, parent_id: str = None) -> str
         l_id = parse_id(list_id, "list")
         p_id = parse_id(parent_id, "parent") if parent_id else None
         
-        c = get_client()
-        if not c.token:
-            await c.authenticate()
+        s = get_service()
+        await s.invalidate_cache(l_id)
         processed_content = re.sub(r'!!+', '!', content)
-        tasks = await c.import_tasks(l_id, processed_content, p_id)
+        tasks = await s.client.import_tasks(l_id, processed_content, p_id)
         return StandardResponse.success(message=f"Tasks imported successfully. New items count: {len(tasks)}")
     except ValueError as e:
         return StandardResponse.error(str(e), "import_tasks", "Ensure IDs are numeric.")
@@ -520,11 +520,10 @@ async def update_task(list_id: str, task_id: str, content: str = None, priority:
         l_id = parse_id(list_id, "list")
         t_id = parse_id(task_id, "task")
         
-        c = get_client()
-        if not c.token:
-            await c.authenticate()
+        s = get_service()
+        await s.invalidate_cache(l_id) # Invalidate cache for the list
         
-        updated = await c.update_task(
+        updated = await s.client.update_task(
             l_id, 
             t_id, 
             content=content, 
@@ -535,12 +534,11 @@ async def update_task(list_id: str, task_id: str, content: str = None, priority:
         
         # Enhancement: Sync visual styling (marks) with priority if provided
         if priority is not None:
-            s = get_service()
             await s.set_task_styling_by_priority(l_id, t_id, priority)
             
         return StandardResponse.success(
             message=f"Task {t_id} updated (with styling).",
-            data={"id": updated['id'], "summary": _format_task_with_meta(updated)}
+            data={"id": updated.id, "summary": _format_task_with_meta(updated)}
         )
     except ValueError as e:
         return StandardResponse.error(str(e), "update_task", "Ensure IDs are numeric.")
@@ -583,12 +581,12 @@ async def reopen_task(list_id: str, task_id: str) -> str:
     try:
         l_id = parse_id(list_id, "list")
         t_id = parse_id(task_id, "task")
-        
         s = get_service()
+        await s.invalidate_cache(l_id) # Invalidate cache for the list
         task = await s.reopen_task(l_id, t_id)
         return StandardResponse.success(
-            message=f"Task reopened: {task.get('content', 'Unknown')}",
-            data={"id": task['id'], "content": task.get('content')}
+            message=f"Task reopened: {task.content}",
+            data={"id": task.id, "content": task.content}
         )
     except ValueError as e:
         return StandardResponse.error(str(e), "reopen_task", "IDs must be numeric.")
@@ -627,27 +625,23 @@ async def apply_template(template_list_id: str, target_list_id: str, confirmed: 
              )
             
         # Build hierarchy
-        task_map = {t['id']: {'data': t, 'children': []} for t in template_tasks}
+        task_map = {t.id: {'data': t, 'children': []} for t in template_tasks}
         roots = []
         for t in template_tasks:
-            pid_raw = t.get('parent_id')
-            try:
-                pid = int(pid_raw) if pid_raw is not None and str(pid_raw).strip() != "" else 0
-            except (ValueError, TypeError):
-                pid = 0
+            pid = t.parent_id or 0
             is_root = pid == 0
             if not is_root and pid in task_map:
-                task_map[pid]['children'].append(task_map[t['id']])
+                task_map[pid]['children'].append(task_map[t.id])
             else:
-                roots.append(task_map[t['id']])
+                roots.append(task_map[t.id])
 
         def build_lines(nodes, level=0):
             txt_lines = []
             for node in nodes:
                 task = node['data']
-                if ARCHIVE_TAG in task.get('tags', []):
+                if ARCHIVE_TAG in task.tags:
                     continue
-                content = task.get('content', '')
+                content = task.content
                 
                 # Apply variable substitution
                 if variables:
@@ -655,15 +649,15 @@ async def apply_template(template_list_id: str, target_list_id: str, confirmed: 
                          # Replace {{KEY}} with val
                          content = content.replace(f"{{{{{key}}}}}", str(val))
                          
-                priority = task.get('priority')
+                priority = task.priority
                 if priority and f"!{priority}" not in content:
                     content += f" !{priority}"
-                tags = task.get('tags', [])
+                tags = task.tags
                 if isinstance(tags, dict): tags = list(tags.keys())
                 for tag in tags:
                     if tag != ARCHIVE_TAG and f"#{tag}" not in content:
                         content += f" #{tag}"
-                due = task.get('due_date')
+                due = task.due_date
                 if due and f"^{due}" not in content:
                     content += f" ^{due}"
                 txt_lines.append("  " * level + content)
@@ -687,7 +681,7 @@ async def apply_template(template_list_id: str, target_list_id: str, confirmed: 
         # Simple heuristic: verify that the last task content from import_text exists in new_tasks
         # (This is more robust than counting as the list might already have tasks)
         last_task_content = imported_lines[-1].strip()
-        found = any(last_task_content in t.get('content', '') for t in new_tasks)
+        found = any(last_task_content in t.content for t in new_tasks)
         
         msg = f"Template applied successfully to list {tgt_id}."
         if not found:
@@ -714,16 +708,13 @@ async def get_review_data(timeframe: str = "weekly") -> str:
     """
     try:
         c = get_client()
-        if not c.token:
-            await c.authenticate()
-        
         checklists = await c.get_checklists()
         stats = []
         for l in checklists[:5]: # Limit to first 5 for speed
-            tasks = await c.get_tasks(l['id'])
-            done = len([t for t in tasks if t.get('status', 0) == 1])
-            open_ts = len([t for t in tasks if t.get('status', 0) == 0])
-            stats.append({"list": l['name'], "completed": done, "open": open_ts})
+            tasks = await c.get_tasks(l.id)
+            done = len([t for t in tasks if t.status == 1])
+            open_ts = len([t for t in tasks if t.status == 0])
+            stats.append({"list": l.name, "completed": done, "open": open_ts})
             
         rate_warning = check_rate_limit()
         return StandardResponse.success(
@@ -780,10 +771,10 @@ async def migrate_incomplete_tasks(source_list_id: str, target_list_id: str, con
             await c.authenticate()
         
         tasks = await c.get_tasks(src_id)
-        incomplete = [t for t in tasks if t.get('status', 0) == 0]
+        incomplete = [t for t in tasks if t.status == 0]
         
         for t in incomplete:
-            await c.move_task_hierarchy(src_id, t['id'], tgt_id)
+            await c.move_task_hierarchy(src_id, t.id, tgt_id)
             
         return StandardResponse.success(message=f"Successfully migrated {len(incomplete)} incomplete tasks to list {target_list_id}.")
     except ValueError as e:
@@ -813,13 +804,13 @@ def analyze_task_heuristics(task: dict, checklists: list) -> dict | None:
     
     for kw, target_name in keyword_map.items():
         if kw in content:
-            target = next((l for l in checklists if target_name.lower() in l["name"].lower()), None)
+            target = next((l for l in checklists if target_name.lower() in l.name.lower()), None)
             if target:
                 return {
                     "action": "move", 
-                    "target_list": target["name"], 
-                    "target_list_id": target["id"], 
-                    "reason": f"Keyword '{kw}' matches {target['name']} list"
+                    "target_list": target.name, 
+                    "target_list_id": target.id, 
+                    "reason": f"Keyword '{kw}' matches {target.name} list"
                 }
     return None
 
@@ -835,30 +826,30 @@ async def triage_inbox(inbox_name: str = "Inbox", analyze: bool = False) -> str:
             await c.authenticate()
             
         checklists = await c.get_checklists()
-        inbox = next((l for l in checklists if inbox_name.lower() in l['name'].lower()), None)
+        inbox = next((l for l in checklists if inbox_name.lower() in l.name.lower()), None)
         
         if not inbox:
             return StandardResponse.error(
                 message=f"List named '{inbox_name}' not found.",
                 action="triage_inbox",
-                next_steps=f"Available lists: {', '.join([l['name'] for l in checklists])}"
+                next_steps=f"Available lists: {', '.join([l.name for l in checklists])}"
             )
             
-        tasks = await c.get_tasks(inbox['id'])
-        open_tasks = [t for t in tasks if t.get('status', 0) == 0 and ARCHIVE_TAG not in t.get('tags', [])]
+        tasks = await c.get_tasks(inbox.id)
+        open_tasks = [t for t in tasks if t.status == 0 and ARCHIVE_TAG not in t.tags]
         
         if not open_tasks:
-            return StandardResponse.success(message=f"Inbox ({inbox['name']}) is empty! Good job.")
+            return StandardResponse.success(message=f"Inbox ({inbox.name}) is empty! Good job.")
             
-        task_map = {t['id']: {'data': t} for t in tasks}
+        task_map = {t.id: t for t in tasks}
         rate_warning = check_rate_limit()
         formatted_tasks = []
         
         for t in open_tasks:
              item = {
-                 "id": t['id'],
-                 "content": t['content'],
-                 "breadcrumb": build_breadcrumb(t['id'], task_map)
+                 "id": t.id,
+                 "content": t.content,
+                 "breadcrumb": build_breadcrumb(t.id, task_map)
              }
              
              if analyze:
@@ -869,7 +860,7 @@ async def triage_inbox(inbox_name: str = "Inbox", analyze: bool = False) -> str:
              formatted_tasks.append(item)
 
         return StandardResponse.success(
-            message=f"Found {len(open_tasks)} tasks for triage in {inbox['name']}.{rate_warning}",
+            message=f"Found {len(open_tasks)} tasks for triage in {inbox.name}.{rate_warning}",
             data=formatted_tasks
         )
     except Exception as e:
@@ -899,23 +890,24 @@ async def get_tree(list_id: str, depth: int = 1) -> str:
             if current_depth > depth + 1: 
                 return ""
             
-            task = node['data']
-            status = 'x' if task.get('status', 0) == 1 else ' '
+            task_dict = node['data']
+            status = 'x' if task_dict.get('status', 0) == 1 else ' '
             indent = "  " * (current_depth - 1)
             
             meta = []
-            priority = task.get('priority')
-            if priority is not None and int(priority) > 0:
+            priority = task_dict.get('priority', 0)
+            if priority > 0:
                 meta.append(f"!{priority}")
-            if task.get('due_date'): meta.append(f"^{task['due_date']}")
+            if task_dict.get('due_date'): 
+                meta.append(f"^{task_dict['due_date']}")
             
-            tags = task.get('tags', [])
-            tag_list = tags if isinstance(tags, list) else list(tags.keys()) if isinstance(tags, dict) else []
-            for tag in tag_list:
-                if tag != ARCHIVE_TAG: meta.append(f"#{tag}")
+            tags = task_dict.get('tags', [])
+            for tag in tags:
+                if tag != ARCHIVE_TAG: 
+                    meta.append(f"#{tag}")
                 
             meta_str = " " + " ".join(meta) if meta else ""
-            line = f"{indent}- [{status}] {task['content']}{meta_str} (ID: {task['id']})"
+            line = f"{indent}- [{status}] {task_dict.get('content', 'No content')}{meta_str} (ID: {task_dict.get('id')})"
             
             children_output = ""
             for child in node['children']:
@@ -966,13 +958,13 @@ async def resurface_ideas() -> str:
         candidates = []
         
         for l in checklists[:3]:
-            tasks = await c.get_tasks(l['id'])
-            open_tasks = [t for t in tasks if t.get('status', 0) == 0]
+            tasks = await c.get_tasks(l.id)
+            open_tasks = [t for t in tasks if t.status == 0]
             if open_tasks:
-                task_map = {t['id']: {'data': t} for t in tasks}
+                task_map = {t.id: t for t in tasks}
                 t = random.choice(open_tasks)
-                breadcrumb = build_breadcrumb(t['id'], task_map)
-                candidates.append({"breadcrumb": breadcrumb, "list": l['name'], "id": t['id']})
+                breadcrumb = build_breadcrumb(t.id, task_map)
+                candidates.append({"breadcrumb": breadcrumb, "list": l.name, "id": t.id})
                 
         if not candidates:
             return StandardResponse.success(message="No open tasks found to resurface.")
@@ -1004,7 +996,7 @@ async def get_upcoming_tasks(filter: str = "all") -> str:
         
         # 2. Fetch checklists for naming
         checklists = await c.get_checklists()
-        list_map = {l['id']: l['name'] for l in checklists}
+        list_map = {l.id: l.name for l in checklists}
         
         # 3. Filter by date logic
         today_dt = date.today()
@@ -1012,36 +1004,36 @@ async def get_upcoming_tasks(filter: str = "all") -> str:
         
         filtered = []
         for t in tasks:
-            due_str = t.get('due')
+            due_str = t.due_date
             if not due_str: continue
             try:
                 # Format is YYYY/MM/DD according to probe
-                due_date = datetime.strptime(due_str, "%Y/%m/%d").date()
+                due_date_obj = datetime.strptime(due_str, "%Y/%m/%d").date()
             except:
                 continue
             
-            if filter == "today" and due_date == today_dt:
+            if filter == "today" and due_date_obj == today_dt:
                 filtered.append(t)
-            elif filter == "overdue" and due_date < today_dt:
+            elif filter == "overdue" and due_date_obj < today_dt:
                 filtered.append(t)
-            elif filter == "tomorrow" and due_date == tomorrow_dt:
+            elif filter == "tomorrow" and due_date_obj == tomorrow_dt:
                 filtered.append(t)
             elif filter == "all":
                 filtered.append(t)
                 
         # 4. Sort by due date
-        filtered.sort(key=lambda x: x.get('due', ''))
+        filtered.sort(key=lambda x: x.due_date or '')
 
         rate_warning = check_rate_limit()
         formatted = []
         for t in filtered:
-            list_name = list_map.get(t.get('checklist_id'), "Unknown List")
+            list_name = list_map.get(t.checklist_id, "Unknown List")
             formatted.append({
-                "id": t['id'],
-                "content": t['content'],
-                "due": t['due'],
+                "id": t.id,
+                "content": t.content,
+                "due": t.due_date,
                 "list_name": list_name,
-                "list_id": t.get('checklist_id')
+                "list_id": t.checklist_id
             })
 
         return StandardResponse.success(

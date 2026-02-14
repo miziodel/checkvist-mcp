@@ -12,7 +12,7 @@ This document is the single source of truth for all planned improvements, archit
 *Inspired by Linear, GitHub, and Superhuman.*
 
 ### Triage & Organization
-- [x] **Autonomous Inbox Smarts**: Auto-suggest categorization for items in "Inbox" based on historical project patterns. (Shipped Phase 1.3 - Triage Heuristics)
+- [] **Autonomous Inbox Smarts**: Auto-suggest categorization for items in "Inbox" based on historical project patterns. (Planned refine)
 - [ ] **Hierarchical Search (`search_tasks_enriched`)**: Return task breadcrumbs to solve "Hierarchical Blindness". (Planned for **Phase 1.2**)
 - [ ] **Smart Snoozing (`Superhuman Style`)**: Tool to hide task branches until a specified date (via tagging or snoozing node).
 - [ ] **WBS Expansion**: Tool to decompose a high-level goal into a hierarchical Work Breakdown Structure (5+ levels).
@@ -24,25 +24,18 @@ This document is the single source of truth for all planned improvements, archit
 - [ ] **Meeting Synthesis**: Automated tool to parse transcripts and inject tasks directly into meeting nodes.
 
 ### Productivity Workflows
-- [x] **Variable Injection for Templates**: Enhance `apply_template` to support dynamic variables (e.g., `{{CLIENT_NAME}}`). (Shipped Phase 1.3)
 - [ ] **Progressive Distillation (`BASB Style`)**: Automated weekly cleanup to move stale items to "Archive/Stale" and generate progress summaries.
 
-### High-Performance Bulk Operations (Shipped 2026-02-07)
-- [x] **Atomic Bulk Tagging**: Use native `/tags.js` for O(1) multi-tagging.
-- [x] **Native Bulk Re-parenting**: Use `/move.json` for complex reorganization without iterative calls.
-- [x] **Global Search 2.0**: Replace iterating playlist search with native `/search/everywhere.json`.
-- [x] **Task Styling API**: Implement tool for setting Priority (marks) and Boldness via native `details` endpoint.
+### High-Performance Bulk Operations
+- [ ] **Native Bulk Re-parenting**: Use `/move.json` for complex reorganization without iterative calls (Planned refine).
+- [ ] **Task Styling API**: Implement tool for setting Priority (marks) and Boldness via native `details` endpoint.
 
 ---
 
 ## 🛠 Stability & Architecture
-- [x] **Custom Exception Hierarchy**: Refactor `src/client.py` to raise typed exceptions (e.g., `CheckvistAPIError`). (Shipped 2026-02-06)
 - [ ] **Strict Type Safety (Mypy)**: Reach 100% type hint coverage in `client.py` and enforce in CI.
-- [ ] **Pydantic Model Migration**: Transition from `Dict[str, Any]` to formal Pydantic models for core entities. (Planned for **Phase 1.3**)
-- [ ] **Smart Syntax Utility Extraction**: Extract tag/priority/date parsing from `server.py` and `client.py`.
 - [ ] **Enhanced API Authentication**: Upgrade the authentication mechanism to be more robust (e.g., token rotation, OAuth support if applicable, or better secret management).
 - [ ] **Centralized ID Coercion**: Move `int()` casting from `server.py` to `CheckvistService` for cleaner tool handlers.
-- [x] **Lazy Tree Fetching**: Optimize `get_tree` for extremely large checklists by fetching sub-branches on-demand. (Shipped Phase 1.3)
 - [ ] **Recursive Code Quality Review**: Establish a periodic automated or semi-automated pipeline/checklist to audit code sanity, performance, and best practices.
 
 ---
@@ -82,23 +75,14 @@ This document is the single source of truth for all planned improvements, archit
 *Immediate actions from multi-persona strategic debate*
 
 ### Critical (Week 1)
-- [x] **API Refactor**: Use `with_notes=true&with_tags=true` to reduce API calls by 60%
-- [x] **Fix `archive_task` Regression**: Achieve 100% success rate with notes, tags, hierarchies
-- [x] **Fix `apply_template` Regression**: Preserve hierarchy in all cases
-- [x] **User Trust Audit**: Implement standardized error response format for all tools
+- [ ] **User Trust Audit**: Implement standardized error response format for all tools
 - [ ] **Resource Leak Audit**: Ensure all `httpx.AsyncClient()` instances have proper `aclose()` calls
-- [ ] **Smart Syntax Import Polyfill**: Implement manual parsing of `^date` and `@user` in `import_tasks` tool (Client-side workaround for API limitation).
 - [ ] **Regression Monitoring**: Monitor Bug #0 (ID Mismatch) and Bug #1 (Add Note 403) via `live_verify.py` (could not reproduce locally).
 
 ### High (Week 2)
-- [x] **Scenario-to-Test Mapping**: Create `tests/scenario_mapping.md` linking SCENARIOS.md to test files
-- [x] **API Compatibility Matrix**: Document all endpoints in `docs/checkvist_api_compatibility.md`
-- [x] **Test Coverage Gap Fill**: Write missing tests for BUG-006, BUG-007, BUG-008, SAFE-006
 - [ ] **Resource Lifecycle Tests**: Add automated tests for client shutdown and timeout enforcement
 
 ### Medium (Week 3)
-- [x] **Tool Maturity Classification**: Label all tools as Alpha/Beta/Stable
-- [x] **Smart Templating with Variables**: Implement `{{VARIABLE}}` injection for templates (Implemented as `apply_template` confirm/logic)
 - [ ] **Tool Sunset Policy**: Define criteria for deprecating unused/unreliable tools
 
 ---
@@ -112,28 +96,8 @@ This document is the single source of truth for all planned improvements, archit
 - [ ] **User Trust Metrics**: Generalize trust measurement approach
 
 ---
+
+---
 *Generated by consolidating SCENARIOS.md, Vision.md, Use-Cases.md, and Audit findings.*
-*Updated 2026-02-01: Added insights from Multi-Persona Strategic Debate.*
-
----
-
-## 🎯 Debate-Driven Priorities (2026-02-06)
-*Strategic alignment after Technical Stability implementation*
-
-### Critical
-- [x] **Soft Error Audit**: Refactor `_safe_json` to `_parse_checkvist_response` to detect error fields in 200 OK payloads.
-- [x] **Connection Hygiene Research**: Find the hook for `FastMCP` teardown (ASGI lifespan) to ensure `aclose()` is guaranteed.
-- [x] **Bulk Transactionality**: Implement "Verify-Before-Success" for `move_task` and `apply_template`.
-
----
-
-## 🏁 Recently Completed
-- [x] **Technical Stability Foundation (Phase 1 & 2)**: Typed Exceptions, Lifespan Hygiene, Soft Error Detection (2026-02-07).
-- [x] **Resilience Core**: Bulk Transactionality and Robust Recursive Archiving (2026-02-07).
-- [x] **Investigation**: Access "due date" view from API (Found undocumented `/checklists/due.json`). <!-- id: task-due-api -->
-- [x] **New Capability**: Implemented `get_upcoming_tasks` tool and `checkvist://due` resource.
-- [x] **Capability**: Implemented `weekly_review` tool for Productivity Architect (Wins/Stale/Blocked analysis).
-- [x] **Documentation**: Added `PERF-001` benchmark to SCENARIOS.md and VERIFICATION_GUIDE.md.
-- [x] **Bug Fix**: `move_task` hierarchy loss across lists (Fixed 2026-02-04).
-- [x] **API Proposal**: [Bulk Operations & Advanced Styling](proposals/2026-02-06_bulk_and_styling_api.md) (Created 2026-02-06).
+*Updated 2026-02-14: Migrated historical progress to [changelog.md](changelog.md).*
 

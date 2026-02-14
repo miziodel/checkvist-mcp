@@ -4,6 +4,7 @@ import httpx
 from httpx import Response
 from src.client import CheckvistClient
 from src.exceptions import CheckvistAuthError
+from src.models import Task, Checklist
 from unittest.mock import MagicMock
 
 @pytest.mark.asyncio
@@ -51,8 +52,9 @@ async def test_get_checklists_success():
         checklists = await client.get_checklists()
         
         assert len(checklists) == 2
-        assert checklists[0]["name"] == "List 1"
-        assert checklists[1]["id"] == 2
+        assert isinstance(checklists[0], Checklist)
+        assert checklists[0].name == "List 1"
+        assert checklists[1].id == 2
 
 @pytest.mark.asyncio
 async def test_get_tasks_success():
@@ -68,7 +70,8 @@ async def test_get_tasks_success():
         tasks = await client.get_tasks(1)
         
         assert len(tasks) == 2
-        assert tasks[0]["content"] == "Task 1"
+        assert isinstance(tasks[0], Task)
+        assert tasks[0].content == "Task 1"
 
 @pytest.mark.asyncio
 async def test_add_task_success():
@@ -83,8 +86,9 @@ async def test_add_task_success():
         
         task = await client.add_task(1, "New Task")
         
-        assert task["id"] == 12
-        assert task["content"] == "New Task"
+        assert isinstance(task, Task)
+        assert task.id == 12
+        assert task.content == "New Task"
 
 @pytest.mark.asyncio
 async def test_update_task_success():
@@ -99,7 +103,7 @@ async def test_update_task_success():
         
         task = await client.update_task(1, 12, content="Updated Task")
         
-        assert task["content"] == "Updated Task"
+        assert task.content == "Updated Task"
 
 @pytest.mark.asyncio
 async def test_close_task_success():
@@ -109,12 +113,12 @@ async def test_close_task_success():
     
     with respx.mock:
         respx.post("https://checkvist.com/checklists/1/tasks/12/close.json").mock(
-            return_value=Response(200, json={"id": 12, "status": 1})
+            return_value=Response(200, json={"id": 12, "status": 1, "content": "Task 12"})
         )
         
         task = await client.close_task(1, 12)
         
-        assert task["status"] == 1
+        assert task.status == 1
 
 @pytest.mark.asyncio
 async def test_search_tasks_success():
@@ -133,9 +137,9 @@ async def test_search_tasks_success():
         )
         
         results = await client.search_tasks("Find")
-        
+    
         assert len(results) == 1
-        assert results[0]["content"] == "Find me"
+        assert results[0].content == "Find me"
 
 @pytest.mark.asyncio
 async def test_create_checklist_success():
@@ -149,9 +153,9 @@ async def test_create_checklist_success():
         )
         
         checklist = await client.create_checklist("New Project")
-        
-        assert checklist["id"] == 500
-        assert checklist["name"] == "New Project"
+    
+        assert checklist.id == 500
+        assert checklist.name == "New Project"
 
 @pytest.mark.asyncio
 async def test_safe_json_204():
@@ -210,9 +214,9 @@ async def test_rename_checklist_success():
         )
         
         checklist = await client.rename_checklist(1, "Renamed List")
-        
-        assert checklist["id"] == 1
-        assert checklist["name"] == "Renamed List"
+    
+        assert checklist.id == 1
+        assert checklist.name == "Renamed List"
 
 @pytest.mark.asyncio
 async def test_get_task_breadcrumbs():
@@ -241,6 +245,7 @@ async def test_move_task_hierarchy_success():
         )
         res = await client.move_task_hierarchy(100, 2, 200)
         assert res["status"] == "ok"
+
 @pytest.mark.asyncio
 async def test_search_global_success():
     client = CheckvistClient(username="test", api_key="key")
@@ -249,9 +254,10 @@ async def test_search_global_success():
         respx.get(url__regex=r"https://checkvist.com/search/everywhere.json.*").mock(
             return_value=Response(200, json=[{"id": 101, "content": "Global Result"}])
         )
+        
         results = await client.search_global("Global")
         assert len(results) == 1
-        assert results[0]["content"] == "Global Result"
+        assert results[0].content == "Global Result"
 
 @pytest.mark.asyncio
 async def test_bulk_tag_tasks_success():
