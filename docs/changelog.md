@@ -2,6 +2,12 @@
 
 ## [v0.3.1] - 2026-02-15
 
+### Fixed
+- **MCP Configuration (`DOC-002`)**: Resolved `ModuleNotFoundError: No module named 'httpcore'` by documenting correct MCP server configuration:
+  - Updated `client_setup.md` with absolute paths to `.venv/bin/python`
+  - Added troubleshooting section for dependency errors
+  - Verified working configuration: direct `server.py` execution (not `fastmcp run`)
+
 ### Changed
 - **Documentation Reorganization (`DOC-001`)**: Restructured `docs/` folder for clarity and reduced semantic overlap:
   - Created `for-mcp-clients/` for AI agent-facing documentation (workflow guides, use cases, persona, API compatibility)
