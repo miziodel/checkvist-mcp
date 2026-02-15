@@ -56,6 +56,14 @@ cp .env.example .env
 > **Mandatory Virtual Environment**: All commands MUST be run with the virtual environment activated. 
 > The Antigravity agent is configured to always use `source .venv/bin/activate && <command>` to ensure consistency and avoid "command not found" errors.
 
+> [!NOTE]
+> **AI Agent Testing**: Due to macOS sandbox restrictions, AI agents (like Antigravity) cannot directly execute `pytest` from within `.venv`. 
+> This is a security feature, not a bug. The recommended workflow is:
+> - **User**: Manually run `pytest` from your terminal
+> - **Agent**: Analyzes test output and proposes fixes
+> 
+> See [mac-dev-hygiene skill](~/.gemini/antigravity/skills/mac-dev-hygiene/SKILL.md) for technical details.
+
 ### Running the Server
 
 ```bash

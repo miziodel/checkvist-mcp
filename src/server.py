@@ -1107,7 +1107,22 @@ async def get_research_index() -> str:
 @mcp.resource("checkvist://docs/workflow-guide")
 async def get_workflow_guide() -> str:
     """ Get the practical guide for Agentic Workflows (OST, Transformation Engine, etc.). """
-    return get_doc_content(DOCS_ROOT / "mcp_workflow_guide.md")
+    return get_doc_content(DOCS_ROOT / "for-mcp-clients" / "workflow_guide.md")
+
+@mcp.resource("checkvist://docs/use-cases")
+async def get_use_cases() -> str:
+    """ Get concrete use-case scenarios for the MCP server. """
+    return get_doc_content(DOCS_ROOT / "for-mcp-clients" / "use_cases.md")
+
+@mcp.resource("checkvist://docs/persona")
+async def get_persona() -> str:
+    """ Get the 'Productivity Architect' persona guide. """
+    return get_doc_content(DOCS_ROOT / "for-mcp-clients" / "persona.md")
+
+@mcp.resource("checkvist://docs/api-compatibility")
+async def get_api_compatibility() -> str:
+    """ Get known limitations and compatibility notes for Checkvist API. """
+    return get_doc_content(DOCS_ROOT / "for-mcp-clients" / "api_compatibility.md")
 
 # --- Workflow Prompts ---
 

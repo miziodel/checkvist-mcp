@@ -69,7 +69,7 @@ async def test_get_list_content_tool(mock_client):
 @pytest.mark.asyncio
 async def test_add_task_tool(mock_client):
     result = await add_task(list_id="100", content="Refactor Tests")
-    mock_client.add_task.assert_called_with(100, "Refactor Tests", None)
+    mock_client.add_task.assert_called_with(100, "Refactor Tests", parent_id=None, parse=True)
     data = json.loads(result)
     assert data["success"] is True
     assert "Task added" in data["message"]

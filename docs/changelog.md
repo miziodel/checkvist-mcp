@@ -1,5 +1,24 @@
 # changelog
 
+## [v0.3.1] - 2026-02-15
+
+### Changed
+- **Documentation Reorganization (`DOC-001`)**: Restructured `docs/` folder for clarity and reduced semantic overlap:
+  - Created `for-mcp-clients/` for AI agent-facing documentation (workflow guides, use cases, persona, API compatibility)
+  - Created `for-developers/` for internal development guides (setup, testing, QA instructions)
+  - Created `engineering/` to consolidate specifications, proposals, and bug reports
+  - Moved competitive analysis to `research/competitive/`
+  - Moved strategic planning sessions to `project-management/strategy/`
+  - Reduced folder count from 10 to 6 (-40% reduction in top-level directories)
+  - Updated `server.py` to expose 3 new MCP resources: `use-cases`, `persona`, `api-compatibility`
+  - Added comprehensive README for `for-mcp-clients/` directory
+
+### Documentation
+- Updated `maintain_living_documentation` skill with MCP-specific patterns:
+  - Audience separation (AI agents vs. human developers)
+  - Consolidation heuristics for growing documentation sets
+  - Resource exposure strategy for MCP servers
+
 ## [v0.3.0] - 2026-02-14
 
 ### Added
