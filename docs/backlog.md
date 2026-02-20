@@ -1,6 +1,6 @@
 ---
-version: 1.3.0
-last_modified: 2026-02-01
+version: 1.3.1
+last_modified: 2026-02-20
 status: active
 ---
 
@@ -41,12 +41,8 @@ This document is the single source of truth for all planned improvements, archit
 ---
 
 ## 🧪 QA & Security
-- [x] **Resilience Testing**: Implement `tests/test_regressions.py` (API 500s, 403s, Timeouts). -> *Consolidated in v1.3.0*.
-- [ ] **Input Sanitization**: Implement `tests/test_input_validation.py` to verify resilience against Type Poisoning.
 - [ ] **Test Hierarchy**: Reorganize `tests/` into `unit/`, `integration/`, and `orchestration/` directories.
-- [ ] **Secret Masking Audit**: Verify that `CHECKVIST_API_KEY` and `X-Client-Token` are never leaked in tool error outputs or logs.
 - [ ] **Cross-List Permission Check**: Verify that `task_id` belongs to the provided `list_id` during operations.
-- [ ] **Prompt Injection Mitigation Audit**: Ensure ALL user-provided content from Checkvist is wrapped in security tags before being returned to the LLM.
 
 ---
 
@@ -54,7 +50,6 @@ This document is the single source of truth for all planned improvements, archit
 *Emerged from 2026-02-01 Strategic Debate*
 
 ### User Behavior Research
-- [x] **Checkvist Forum Analysis**: Research Checkvist forum to understand workflows, methodologies (GTD, PARA), and pain points. -> *Completed 2026-02-01 in `docs/research/user_research_2026_02.md`*.
 - [ ] **User Persona Validation**: Validate "Final User" persona with real user feedback (Initial validation done in research doc).
 - [ ] **Usage Pattern Analysis**: Identify common task organization patterns to inform AI triage logic. -> *Initial heuristics defined in `docs/research/smart_triage_heuristics.md`*.
 
@@ -73,11 +68,6 @@ This document is the single source of truth for all planned improvements, archit
 
 ## 🎯 Debate-Driven Priorities (2026-02-01)
 *Immediate actions from multi-persona strategic debate*
-
-### Critical (Week 1)
-- [ ] **User Trust Audit**: Implement standardized error response format for all tools
-- [ ] **Resource Leak Audit**: Ensure all `httpx.AsyncClient()` instances have proper `aclose()` calls
-- [ ] **Regression Monitoring**: Monitor Bug #0 (ID Mismatch) and Bug #1 (Add Note 403) via `live_verify.py` (could not reproduce locally).
 
 ### High (Week 2)
 - [ ] **Resource Lifecycle Tests**: Add automated tests for client shutdown and timeout enforcement

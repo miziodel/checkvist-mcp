@@ -138,8 +138,8 @@ async def test_triage_inbox_tool(mock_client):
     result = await triage_inbox(inbox_name="Inbox")
     data = json.loads(result)
     assert data["success"] is True
-    assert any(t["content"] == "Auth Module" for t in data["data"])
-    assert any(t["breadcrumb"] == "Auth Module" for t in data["data"])
+    assert any("Auth Module" in t["content"] for t in data["data"])
+    assert any("Auth Module" in t["breadcrumb"] for t in data["data"])
 
 @pytest.mark.asyncio
 async def test_search_tasks_includes_metadata(mock_client):
@@ -269,7 +269,7 @@ async def test_resurface_ideas_tool(mock_client):
         assert data["success"] is True
         # First 3 lists are 100, 200, 888. List 100 has 'Implement Login'.
         valid_breadcrumbs = ["Auth Module", "Implement Login", "Setup OAuth"]
-        assert any(item["breadcrumb"] in valid_breadcrumbs for item in data["data"])
+        assert any(bread in item["breadcrumb"] for item in data["data"] for bread in valid_breadcrumbs)
 
 @pytest.mark.asyncio
 async def test_search_list_json_format(mock_client):
@@ -306,8 +306,8 @@ async def test_get_task_standard_response_crash_repro(mock_client, mocker):
     data = json.loads(result)
     assert data["success"] is False
     assert "Database Failure" in data["error_details"]
-    assert "next_steps" in data
-    assert "Check the task ID" in data["next_steps"]
+    assert "suggestion" in data
+    assert "Check the task ID" in data["suggestion"]
 
 @pytest.mark.asyncio
 async def test_get_task_list_response_handled(mock_client):
@@ -344,3 +344,45 @@ async def test_set_task_priority_styling(mock_client):
     assert data["success"] is True
     # The client's set_task_styling should be called eventually
     mock_client.set_task_styling.assert_called_with(100, 101, mark="fg1")
+
+@pytest.mark.asyncio
+async def test_safe_007_comprehensive_data_wrapping(mock_client):
+    """SAFE-007: Verify that all tools returning user data use <user_data> tags."""
+    # Ensure we have data
+    mock_client.get_tasks.side_effect = lambda l_id: [
+        Task(id=101, content="Security Task", checklist_id=999, status=0, parent_id=None),
+        Task(id=102, content="Search Match", checklist_id=100, status=0, parent_id=None, due_date="2026/02/20")
+    ]
+    # get_upcoming_tasks expects Task objects from get_due_tasks
+    mock_client.get_due_tasks.return_value = [
+        Task(id=101, content="Upcoming Task", checklist_id=100, due_date="2026/02/20")
+    ]
+    mock_client.get_task.return_value = Task(
+        id=101, content="Security Task", checklist_id=999, notes="Secret info"
+    )
+    
+    # 1. get_task details wrapping
+    res = await get_task(list_id="999", task_id="101")
+    data = json.loads(res)
+    assert "<user_data>" in data["data"]["details"]
+    
+    # 2. search_tasks fields wrapping (verified by indicators in breadcrumb)
+    res = await search_tasks(query="Security")
+    data = json.loads(res)
+    assert any("<user_data>" in t["content"] for t in data["data"])
+    assert any("<user_data>" in t["breadcrumb"] for t in data["data"])
+    
+    # 3. triage_inbox wrapping
+    res = await triage_inbox(inbox_name="Inbox")
+    data = json.loads(res)
+    assert any("<user_data>" in t["content"] for t in data["data"])
+    
+    # 4. get_upcoming_tasks wrapping
+    res = await get_upcoming_tasks()
+    data = json.loads(res)
+    assert any("<user_data>" in t["content"] for t in data["data"])
+
+    # 5. get_tree data wrapping
+    res = await get_tree(list_id="100")
+    data = json.loads(res)
+    assert "<user_data>" in data["data"]

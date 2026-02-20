@@ -141,7 +141,18 @@ class CheckvistService:
             for matches in local_results:
                 all_matches.extend(matches)
                     
-        return all_matches[:10]
+        return self._truncate_list(all_matches, limit=10)
+
+    def _truncate_list(self, items: List[Any], limit: int = 100) -> List[Any]:
+        """
+        [B1] Context Guard: Truncate list if it exceeds the safety limit.
+        Adds a truncation warning if items are removed.
+        """
+        if len(items) <= limit:
+            return items
+        
+        logger.warning(f"Context Guard: Truncating list from {len(items)} to {limit} items.")
+        return items[:limit]
 
     async def bulk_tag_tasks(self, list_id: int, task_ids: List[int], tags: str):
         """Service wrapper for bulk tagging."""
@@ -380,7 +391,8 @@ class CheckvistService:
                 'children': [truncate_node(child, current_depth + 1) for child in node['children']]
             }
 
-        return [truncate_node(root, 0) for root in roots]
+        truncated_roots = [truncate_node(root, 0) for root in roots]
+        return self._truncate_list(truncated_roots, limit=50) # Tighter limit for tree structures
 
     async def get_weekly_summary(self) -> str:
         """

@@ -1,5 +1,32 @@
 # changelog
 
+## [v1.3.0] - 2026-02-20
+
+### Added (Sprint B & C)
+- **Standardized Error Format (`B3`)**: Unified error responses with `error_code` (e.g., E001, E002, E004) and `suggestion` fields for improved LLM handling. *(Backlog: "User Trust Audit")*
+- **Context Guard (`B1`)**: Proactive list truncation in `service.py` to prevent context window overflow (Limit: 100 items for lists, 50 for trees). *(Roadmap: "MCP-002: Structural Sampling & Context Guard")*
+- **Secret Masker (`SAFE-001`)**: Custom `SecretMasker` logging filter in `src/logging_util.py` that masks `X-Client-Token`, `remote_key`, and generic token patterns in all log output. *(Roadmap: "SAFE-001: Security Hardening & Secret Masking")*
+- **Prompt Injection Mitigation (`SAFE-002`)**: Automated XML-style wrapping (`<user_data>`) applied to ALL tools returning user-originated content. *(Backlog: "Prompt Injection Mitigation Audit")*
+- **Granular Input Validation (`C2`)**: 
+  - Centralized `parse_id` helper ensuring all IDs are positive integers.
+  - Non-empty string validation for `add_task`, `import_tasks`, `add_note`, and `rename_list`.
+  - *(Backlog: "Input Sanitization")*
+- **Integrated Security Verification (`C1`)**: Consolidated security-sensitive tests (Secret Masker, XML Wrapping) into the core suite (`test_server.py`, `test_tools.py`) for high-velocity CI. *(Backlog: "Resilience Testing")*
+
+### Changed
+- **Error Field Renaming**: Renamed `next_steps` to `suggestion` in `StandardResponse` (Breaking Change).
+- **Test Organization**: Re-structured `tests/test_regressions.py` to contain only bug-specific reproductions.
+- **Response Wrapping**: Enhanced XML-style wrapping (`<user_data>`) for all user-originated content to mitigate prompt injection.
+- **Resource Lifecycle**: Audited all `httpx.AsyncClient()` instances for proper `aclose()` calls and ASGI lifespan compliance. *(Backlog: "Resource Leak Audit")*
+
+### Fixed
+- **Regression Fixes**: 
+  - Restored test compatibility after error format changes.
+  - Fixed exact match failures in tests caused by XML wrapping implementation.
+  - Verified stability of BUG-010 (cross-list parenting) via complex live integration tests.
+  - Monitored and verified Bug #0 (ID Mismatch) and Bug #1 (Add Note 403) via `live_verify.py`. *(Backlog: "Regression Monitoring")*
+
+
 ## [v0.3.1] - 2026-02-15
 
 ### Fixed

@@ -13,6 +13,10 @@ from src.models import Task, Checklist
 from src import __version__
 from dotenv import load_dotenv
 from pathlib import Path
+from src.logging_util import setup_logging
+
+# Setup masked logging
+setup_logging()
 from src.exceptions import (
     CheckvistAuthError,
     CheckvistAPIError,
@@ -111,11 +115,19 @@ async def shutdown():
         client = None
 
 def parse_id(id_val: Any, name: str) -> int:
-    """ Validate and convert ID to integer. """
+    """ 
+    [C1] Consolidated ID parsing. 
+    Validate and convert ID to integer. 
+    """
+    if id_val is None:
+        raise ValueError(f"Missing {name} ID.")
     try:
-        return int(id_val)
+        val = int(id_val)
+        if val <= 0:
+            raise ValueError()
+        return val
     except (ValueError, TypeError):
-        raise ValueError(f"Invalid {name} ID: '{id_val}'. Must be a number.")
+        raise ValueError(f"Invalid {name} ID: '{id_val}'. Must be a positive number.")
 
 @mcp.tool()
 async def search_list(query: str) -> str:
@@ -132,8 +144,9 @@ async def search_list(query: str) -> str:
         if not matches:
             return StandardResponse.error(
                 message=f"No lists found matching '{query}'",
+                error_code="E002",
                 action="search_list",
-                next_steps="Try a different query or list all checklists."
+                strategy="Try a different query or list all checklists."
             )
             
         rate_warning = check_rate_limit()
@@ -143,14 +156,15 @@ async def search_list(query: str) -> str:
             data=formatted_matches
         )
     except CheckvistAuthError as e:
-        return StandardResponse.error(str(e), "search_list", "Please check your CHECKVIST_API_KEY and USERNAME.")
+        return StandardResponse.error(str(e), error_code="E001", action="search_list", strategy="Please check your CHECKVIST_API_KEY and USERNAME.")
     except CheckvistConnectionError as e:
-        return StandardResponse.error(str(e), "search_list", "Check your internet connection.")
+        return StandardResponse.error(str(e), error_code="E004", action="search_list", strategy="Check your internet connection.")
     except Exception as e:
         return StandardResponse.error(
             message="Failed to search lists",
+            error_code="E004",
             action="search_list",
-            next_steps="Verify API connection and credentials.",
+            strategy="Verify API connection and credentials.",
             error_details=str(e)
         )
 
@@ -204,6 +218,9 @@ async def add_task(list_id: str, content: str, parent_id: str = None) -> str:
     Returns: JSON string with keys 'success', 'message', 'data' (added task(s) info).
     """
     try:
+        if not content or not content.strip():
+            return StandardResponse.error("Task content cannot be empty.", error_code="E004", action="add_task", strategy="Provide task content.")
+            
         l_id = parse_id(list_id, "list")
         p_id = parse_id(parent_id, "parent") if parent_id else None
         
@@ -242,12 +259,13 @@ async def add_task(list_id: str, content: str, parent_id: str = None) -> str:
             data={"id": task.id, "content": task.content}
         )
     except ValueError as e:
-        return StandardResponse.error(str(e), "add_task", "Ensure list_id and parent_id are numeric.")
+        return StandardResponse.error(str(e), error_code="E004", action="add_task", strategy="Ensure list_id and parent_id are numeric.")
     except Exception as e:
         return StandardResponse.error(
             message="Failed to add task",
+            error_code="E004",
             action="add_task",
-            next_steps="Verify list_id and parent_id (if provided).",
+            strategy="Verify list_id and parent_id (if provided).",
             error_details=str(e)
         )
 
@@ -267,12 +285,13 @@ async def close_task(list_id: str, task_id: str) -> str:
             
         return StandardResponse.success(message=f"Task closed: {task.content}")
     except ValueError as e:
-        return StandardResponse.error(str(e), "close_task", "Ensure IDs are numeric.")
+        return StandardResponse.error(str(e), error_code="E004", action="close_task", strategy="Ensure IDs are numeric.")
     except Exception as e:
         return StandardResponse.error(
             message="Failed to close task",
+            error_code="E004",
             action=f"close_task(list_id={list_id}, task_id={task_id})",
-            next_steps="Ensure the task exists and is not already closed.",
+            strategy="Ensure the task exists and is not already closed.",
             error_details=str(e)
         )
 
@@ -294,8 +313,9 @@ async def create_list(name: str, public: bool = False) -> str:
     except Exception as e:
         return StandardResponse.error(
             message="Failed to create checklist",
+            error_code="E004",
             action="create_list",
-            next_steps="Check your credentials and quota.",
+            strategy="Check your credentials and quota.",
             error_details=str(e)
         )
 
@@ -320,8 +340,8 @@ async def search_tasks(query: str) -> str:
         for r in visible_results:
             formatted_results.append({
                 "id": r['id'],
-                "content": r.get('content', ''), # Ensure content is present for tests
-                "breadcrumb": r['breadcrumb'],
+                "content": wrap_data(r.get('content', '')),
+                "breadcrumb": wrap_data(r['breadcrumb']),
                 "list_id": r['list_id'],
                 "list_name": r['list_name'],
                 "task_id": r['id'],
@@ -337,8 +357,9 @@ async def search_tasks(query: str) -> str:
     except Exception as e:
         return StandardResponse.error(
             message="Search failed",
+            error_code="E004",
             action="search_tasks",
-            next_steps="Check if the query contains special characters that might be problematic.",
+            strategy="Check if the query contains special characters that might be problematic.",
             error_details=str(e)
         )
 
@@ -391,12 +412,13 @@ async def move_task_tool(list_id: str, task_id: str, target_list_id: str = None,
         await c.move_task(l_id, t_id, tp_id)
         return StandardResponse.success(message=f"Moved task {task_id} under new parent {target_parent_id if target_parent_id else 'root'} in list {list_id}.")
     except ValueError as e:
-        return StandardResponse.error(str(e), "move_task_tool", "Ensure all IDs are numeric.")
+        return StandardResponse.error(str(e), error_code="E004", action="move_task_tool", strategy="Ensure all IDs are numeric.")
     except Exception as e:
         return StandardResponse.error(
             message="Failed to move task",
+            error_code="E004",
             action="move_task_tool",
-            next_steps="Verify IDs and your access permissions for the target list.",
+            strategy="Verify IDs and your access permissions for the target list.",
             error_details=str(e)
         )
 
@@ -407,6 +429,9 @@ async def import_tasks(list_id: str, content: str, parent_id: str = None) -> str
     Returns: JSON string with keys 'success', 'message'.
     """
     try:
+        if not content or not content.strip():
+            return StandardResponse.error("Import content cannot be empty.", error_code="E004", action="import_tasks", strategy="Provide task content in text format.")
+
         l_id = parse_id(list_id, "list")
         p_id = parse_id(parent_id, "parent") if parent_id else None
         
@@ -416,12 +441,13 @@ async def import_tasks(list_id: str, content: str, parent_id: str = None) -> str
         tasks = await s.client.import_tasks(l_id, processed_content, p_id)
         return StandardResponse.success(message=f"Tasks imported successfully. New items count: {len(tasks)}")
     except ValueError as e:
-        return StandardResponse.error(str(e), "import_tasks", "Ensure IDs are numeric.")
+        return StandardResponse.error(str(e), error_code="E004", action="import_tasks", strategy="Ensure IDs are positive numbers.")
     except Exception as e:
         return StandardResponse.error(
             message="Import failed",
+            error_code="E004",
             action="import_tasks",
-            next_steps="Check the format of your import content. Ensure 2 spaces indentation for subtasks.",
+            strategy="Check the format of your import content. Ensure 2 spaces indentation for subtasks.",
             error_details=str(e)
         )
 
@@ -432,6 +458,9 @@ async def add_note(list_id: str, task_id: str, note: str) -> str:
     Returns: JSON string with keys 'success', 'message'.
     """
     try:
+        if not note or not note.strip():
+            return StandardResponse.error("Note content cannot be empty.", error_code="E004", action="add_note", strategy="Provide note content.")
+            
         l_id = parse_id(list_id, "list")
         t_id = parse_id(task_id, "task")
         
@@ -441,12 +470,13 @@ async def add_note(list_id: str, task_id: str, note: str) -> str:
         await c.add_note(l_id, t_id, note)
         return StandardResponse.success(message=f"Note added to task {t_id} in list {l_id}.")
     except ValueError as e:
-        return StandardResponse.error(str(e), "add_note", "Ensure IDs are numeric.")
+        return StandardResponse.error(str(e), error_code="E004", action="add_note", strategy="Ensure IDs are numeric.")
     except Exception as e:
         return StandardResponse.error(
             message="Failed to add note",
+            error_code="E004",
             action=f"add_note(task_id={task_id})",
-            next_steps="Verify the task ID and your access rights.",
+            strategy="Verify the task ID and your access rights.",
             error_details=str(e)
         )
 
@@ -477,7 +507,7 @@ async def get_task(list_id: str, task_id: str, include_children: bool = False, d
         
         response_data = {
             "id": task["id"],
-            "details": details,
+            "details": wrap_data(details),
             "has_notes": bool(enriched["notes"]),
             "has_comments": bool(enriched["comments"])
         }
@@ -499,14 +529,16 @@ async def get_task(list_id: str, task_id: str, include_children: bool = False, d
     except ValueError as e:
         return StandardResponse.error(
             message=str(e), 
+            error_code="E004",
             action="get_task", 
-            next_steps="Ensure IDs are numeric. Try searching for the task first to get the correct IDs."
+            strategy="Ensure IDs are numeric. Try searching for the task first to get the correct IDs."
         )
     except Exception as e:
         return StandardResponse.error(
             message="Failed to fetch task details",
+            error_code="E004",
             action=f"get_task(task_id={task_id})",
-            next_steps="Check the task ID or verify your connection to Checkvist.",
+            strategy="Check the task ID or verify your connection to Checkvist.",
             error_details=str(e)
         )
 
@@ -541,12 +573,13 @@ async def update_task(list_id: str, task_id: str, content: str = None, priority:
             data={"id": updated.id, "summary": _format_task_with_meta(updated)}
         )
     except ValueError as e:
-        return StandardResponse.error(str(e), "update_task", "Ensure IDs are numeric.")
+        return StandardResponse.error(str(e), error_code="E004", action="update_task", strategy="Ensure IDs are numeric.")
     except Exception as e:
         return StandardResponse.error(
             message="Failed to update task",
+            error_code="E004",
             action=f"update_task(task_id={task_id})",
-            next_steps="Check if the task exists and the property values are valid.",
+            strategy="Check if the task exists and the property values are valid.",
             error_details=str(e)
         )
 
@@ -556,6 +589,9 @@ async def rename_list(list_id: str, new_name: str) -> str:
         Returns: JSON string with keys 'success', 'message'.
     """
     try:
+        if not new_name or not new_name.strip():
+            return StandardResponse.error("New list name cannot be empty.", error_code="E004", action="rename_list", strategy="Provide a new name.")
+            
         l_id = parse_id(list_id, "list")
         
         c = get_client()
@@ -564,12 +600,13 @@ async def rename_list(list_id: str, new_name: str) -> str:
         await c.rename_checklist(l_id, new_name)
         return StandardResponse.success(message=f"List {l_id} successfully renamed to '{new_name}'.")
     except ValueError as e:
-        return StandardResponse.error(str(e), "rename_list", "Ensure list ID is numeric.")
+        return StandardResponse.error(str(e), error_code="E004", action="rename_list", strategy="Ensure list ID is numeric.")
     except Exception as e:
         return StandardResponse.error(
             message="Failed to rename list",
+            error_code="E004",
             action=f"rename_list(list_id={list_id})",
-            next_steps="Check if the list exists and you have rename permissions.",
+            strategy="Check if the list exists and you have rename permissions.",
             error_details=str(e)
         )
 
@@ -589,12 +626,13 @@ async def reopen_task(list_id: str, task_id: str) -> str:
             data={"id": task.id, "content": task.content}
         )
     except ValueError as e:
-        return StandardResponse.error(str(e), "reopen_task", "IDs must be numeric.")
+        return StandardResponse.error(str(e), error_code="E004", action="reopen_task", strategy="IDs must be numeric.")
     except Exception as e:
         return StandardResponse.error(
             message="Failed to reopen task",
+            error_code="E004",
             action=f"reopen_task(task_id={task_id})",
-            next_steps="Verify the task is currently closed.",
+            strategy="Verify the task is currently closed.",
             error_details=str(e)
         )
 
@@ -620,8 +658,9 @@ async def apply_template(template_list_id: str, target_list_id: str, confirmed: 
         if not template_tasks:
              return StandardResponse.error(
                  message=f"Template list {tmp_id} is empty or not found.",
+                 error_code="E002",
                  action="apply_template",
-                next_steps="Ensure the template list exists and contains tasks."
+                 strategy="Ensure the template list exists and contains tasks."
              )
             
         # Build hierarchy
@@ -668,8 +707,9 @@ async def apply_template(template_list_id: str, target_list_id: str, confirmed: 
         if not import_text.strip():
              return StandardResponse.error(
                  message="No valid tasks found in template to import.",
+                 error_code="E004",
                  action="apply_template",
-                 next_steps="Check if all tasks in the template are archived."
+                 strategy="Check if all tasks in the template are archived."
              )
              
         await c.import_tasks(tgt_id, import_text)
@@ -691,12 +731,13 @@ async def apply_template(template_list_id: str, target_list_id: str, confirmed: 
             
         return StandardResponse.success(message=f"{msg} Verified {len(imported_lines)} tasks imported.")
     except ValueError as e:
-        return StandardResponse.error(str(e), "apply_template", "Ensure IDs are numeric.")
+        return StandardResponse.error(str(e), error_code="E004", action="apply_template", strategy="Ensure IDs are numeric.")
     except Exception as e:
         return StandardResponse.error(
             message="Failed to apply template",
+            error_code="E004",
             action="apply_template",
-            next_steps="Check IDs and connectivity.",
+            strategy="Check IDs and connectivity.",
             error_details=str(e)
         )
 
@@ -724,8 +765,9 @@ async def get_review_data(timeframe: str = "weekly") -> str:
     except Exception as e:
         return StandardResponse.error(
             message="Failed to gather review data",
+            error_code="E004",
             action="get_review_data",
-            next_steps="Try again later or check your API connection.",
+            strategy="Try again later or check your API connection.",
             error_details=str(e)
         )
 
@@ -747,8 +789,9 @@ async def weekly_review() -> str:
     except Exception as e:
         return StandardResponse.error(
             message="Weekly Review failed",
+            error_code="E004",
             action="weekly_review",
-            next_steps="Verify API connection and try again.",
+            strategy="Verify API connection and try again.",
             error_details=str(e)
         )
 
@@ -778,12 +821,13 @@ async def migrate_incomplete_tasks(source_list_id: str, target_list_id: str, con
             
         return StandardResponse.success(message=f"Successfully migrated {len(incomplete)} incomplete tasks to list {target_list_id}.")
     except ValueError as e:
-        return StandardResponse.error(str(e), "migrate_incomplete_tasks", "Ensure list IDs are numeric.")
+        return StandardResponse.error(str(e), error_code="E004", action="migrate_incomplete_tasks", strategy="Ensure list IDs are numeric.")
     except Exception as e:
         return StandardResponse.error(
             message="Migration failed",
+            error_code="E004",
             action="migrate_incomplete_tasks",
-            next_steps="Verify list IDs and permissions.",
+            strategy="Verify list IDs and permissions.",
             error_details=str(e)
         )
 
@@ -831,8 +875,9 @@ async def triage_inbox(inbox_name: str = "Inbox", analyze: bool = False) -> str:
         if not inbox:
             return StandardResponse.error(
                 message=f"List named '{inbox_name}' not found.",
+                error_code="E002",
                 action="triage_inbox",
-                next_steps=f"Available lists: {', '.join([l.name for l in checklists])}"
+                strategy=f"Available lists: {', '.join([l.name for l in checklists])}"
             )
             
         tasks = await c.get_tasks(inbox.id)
@@ -848,8 +893,8 @@ async def triage_inbox(inbox_name: str = "Inbox", analyze: bool = False) -> str:
         for t in open_tasks:
              item = {
                  "id": t.id,
-                 "content": t.content,
-                 "breadcrumb": build_breadcrumb(t.id, task_map)
+                 "content": wrap_data(t.content),
+                 "breadcrumb": wrap_data(build_breadcrumb(t.id, task_map))
              }
              
              if analyze:
@@ -866,8 +911,9 @@ async def triage_inbox(inbox_name: str = "Inbox", analyze: bool = False) -> str:
     except Exception as e:
         return StandardResponse.error(
             message="Triage failed",
+            error_code="E004",
             action="triage_inbox",
-            next_steps="Check connectivity.",
+            strategy="Check connectivity.",
             error_details=str(e)
         )
 
@@ -926,15 +972,16 @@ async def get_tree(list_id: str, depth: int = 1) -> str:
         content = "\n".join(output)
         return StandardResponse.success(
             message=f"Fetched tree for list {list_id} (depth={depth}).{rate_warning}",
-            data=content
+            data=wrap_data(content)
         )
     except ValueError as e:
-        return StandardResponse.error(str(e), "get_tree", "Ensure list ID is numeric.")
+        return StandardResponse.error(str(e), error_code="E004", action="get_tree", strategy="Ensure list ID is numeric.")
     except Exception as e:
         return StandardResponse.error(
             message="Failed to fetch tree",
+            error_code="E004",
             action=f"get_tree(list_id={list_id})",
-            next_steps="Check if the list ID is valid and accessible.",
+            strategy="Check if the list ID is valid and accessible.",
             error_details=str(e)
         )
 
@@ -952,7 +999,7 @@ async def resurface_ideas() -> str:
             
         checklists = await c.get_checklists()
         if not checklists:
-            return StandardResponse.error(message="No lists found.", action="resurface_ideas", next_steps="Create some lists first!")
+            return StandardResponse.error(message="No lists found.", error_code="E002", action="resurface_ideas", strategy="Create some lists first!")
             
         random.shuffle(checklists)
         candidates = []
@@ -963,8 +1010,8 @@ async def resurface_ideas() -> str:
             if open_tasks:
                 task_map = {t.id: t for t in tasks}
                 t = random.choice(open_tasks)
-                breadcrumb = build_breadcrumb(t.id, task_map)
-                candidates.append({"breadcrumb": breadcrumb, "list": l.name, "id": t.id})
+                breadcrumb = wrap_data(build_breadcrumb(t.id, task_map))
+                candidates.append({"breadcrumb": breadcrumb, "list": wrap_data(l.name), "id": t.id})
                 
         if not candidates:
             return StandardResponse.success(message="No open tasks found to resurface.")
@@ -975,7 +1022,7 @@ async def resurface_ideas() -> str:
             data=candidates
         )
     except Exception as e:
-        return StandardResponse.error(message="Failed to resurface ideas", action="resurface_ideas", next_steps="Try again later.", error_details=str(e))
+        return StandardResponse.error(message="Failed to resurface ideas", error_code="E004", action="resurface_ideas", strategy="Try again later.", error_details=str(e))
 
 @mcp.tool()
 async def get_upcoming_tasks(filter: str = "all") -> str:
@@ -1030,9 +1077,9 @@ async def get_upcoming_tasks(filter: str = "all") -> str:
             list_name = list_map.get(t.checklist_id, "Unknown List")
             formatted.append({
                 "id": t.id,
-                "content": t.content,
+                "content": wrap_data(t.content),
                 "due": t.due_date,
-                "list_name": list_name,
+                "list_name": wrap_data(list_name),
                 "list_id": t.checklist_id
             })
 
@@ -1043,8 +1090,9 @@ async def get_upcoming_tasks(filter: str = "all") -> str:
     except Exception as e:
         return StandardResponse.error(
             message="Failed to fetch upcoming tasks",
+            error_code="E004",
             action="get_upcoming_tasks",
-            next_steps="Verify API connection.",
+            strategy="Verify API connection.",
             error_details=str(e)
         )
 
@@ -1086,12 +1134,13 @@ async def archive_task(list_id: str, task_id: str) -> str:
         result = await s.archive_task(l_id, t_id)
         return StandardResponse.success(message=result)
     except ValueError as e:
-        return StandardResponse.error(str(e), "archive_task", "IDs must be numeric.")
+        return StandardResponse.error(str(e), error_code="E004", action="archive_task", strategy="IDs must be numeric.")
     except Exception as e:
         return StandardResponse.error(
             message="Failed to archive task",
+            error_code="E004",
             action=f"archive_task(task_id={task_id})",
-            next_steps="Check if the task exists.",
+            strategy="Check if the task exists.",
             error_details=str(e)
         )
 
@@ -1102,27 +1151,27 @@ async def archive_task(list_id: str, task_id: str) -> str:
 @mcp.resource("checkvist://docs/research-index")
 async def get_research_index() -> str:
     """ Get the central index of all PKM and workflow research. """
-    return get_doc_content(DOCS_ROOT / "research" / "README.md")
+    return wrap_data(get_doc_content(DOCS_ROOT / "research" / "README.md"))
 
 @mcp.resource("checkvist://docs/workflow-guide")
 async def get_workflow_guide() -> str:
     """ Get the practical guide for Agentic Workflows (OST, Transformation Engine, etc.). """
-    return get_doc_content(DOCS_ROOT / "for-mcp-clients" / "workflow_guide.md")
+    return wrap_data(get_doc_content(DOCS_ROOT / "for-mcp-clients" / "workflow_guide.md"))
 
 @mcp.resource("checkvist://docs/use-cases")
 async def get_use_cases() -> str:
     """ Get concrete use-case scenarios for the MCP server. """
-    return get_doc_content(DOCS_ROOT / "for-mcp-clients" / "use_cases.md")
+    return wrap_data(get_doc_content(DOCS_ROOT / "for-mcp-clients" / "use_cases.md"))
 
 @mcp.resource("checkvist://docs/persona")
 async def get_persona() -> str:
     """ Get the 'Productivity Architect' persona guide. """
-    return get_doc_content(DOCS_ROOT / "for-mcp-clients" / "persona.md")
+    return wrap_data(get_doc_content(DOCS_ROOT / "for-mcp-clients" / "persona.md"))
 
 @mcp.resource("checkvist://docs/api-compatibility")
 async def get_api_compatibility() -> str:
     """ Get known limitations and compatibility notes for Checkvist API. """
-    return get_doc_content(DOCS_ROOT / "for-mcp-clients" / "api_compatibility.md")
+    return wrap_data(get_doc_content(DOCS_ROOT / "for-mcp-clients" / "api_compatibility.md"))
 
 # --- Workflow Prompts ---
 
@@ -1169,12 +1218,13 @@ async def bulk_tag_tasks(list_id: str, task_ids: List[str], tags: str) -> str:
         
         return StandardResponse.success(message=f"Successfully tagged {len(ids)} tasks with '{tags}'.")
     except ValueError as e:
-        return StandardResponse.error(str(e), "bulk_tag_tasks", "Ensure list_id and all task_ids are numeric.")
+        return StandardResponse.error(str(e), error_code="E004", action="bulk_tag_tasks", strategy="Ensure list_id and all task_ids are numeric.")
     except Exception as e:
         return StandardResponse.error(
             message="Bulk tagging failed",
+            error_code="E004",
             action="bulk_tag_tasks",
-            next_steps="Verify task IDs belong to the specified list.",
+            strategy="Verify task IDs belong to the specified list.",
             error_details=str(e)
         )
 
@@ -1194,12 +1244,13 @@ async def bulk_move_tasks(list_id: str, task_ids: List[str], target_list_id: str
         
         return StandardResponse.success(message=f"Successfully moved {len(ids)} tasks to list {target_list_id}.")
     except ValueError as e:
-        return StandardResponse.error(str(e), "bulk_move_tasks", "Ensure all IDs are numeric.")
+        return StandardResponse.error(str(e), error_code="E004", action="bulk_move_tasks", strategy="Ensure all IDs are numeric.")
     except Exception as e:
         return StandardResponse.error(
             message="Bulk move failed",
+            error_code="E004",
             action="bulk_move_tasks",
-            next_steps="Verify permissions and that tasks exist in the source list.",
+            strategy="Verify permissions and that tasks exist in the source list.",
             error_details=str(e)
         )
 

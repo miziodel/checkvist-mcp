@@ -22,15 +22,17 @@ def test_standard_response_error():
     """Verify error response formatting."""
     resp_str = StandardResponse.error(
         message="Failed",
+        error_code="E004",
         action="test_action",
-        next_steps="Try again",
+        strategy="Try again",
         error_details="Detailed error"
     )
     resp = json.loads(resp_str)
     assert resp["success"] is False
+    assert resp["error_code"] == "E004"
     assert resp["message"] == "Failed"
     assert resp["action"] == "test_action"
-    assert resp["next_steps"] == "Try again"
+    assert resp["suggestion"] == "Try again"
     assert resp["error_details"] == "Detailed error"
 
 
@@ -127,3 +129,46 @@ def test_syntax_has_symbols():
     assert parser.has_symbols("Task !1") is True
     assert parser.has_symbols("Task @user") is True
     assert parser.has_symbols("Task ^date") is True
+    assert parser.has_symbols("Task !!1") is True
+
+def test_context_guard_list_truncation():
+    """Verify that CheckvistService._truncate_list truncates flat lists."""
+    from src.service import CheckvistService
+    service = CheckvistService(None)
+    large_list = [{"id": i} for i in range(150)]
+    truncated = service._truncate_list(large_list, limit=100)
+    assert len(truncated) == 100
+    assert truncated[0]["id"] == 0
+    assert truncated[99]["id"] == 99
+
+def test_context_guard_tree_truncation():
+    """Verify that CheckvistService._truncate_list truncates deep structures (roots)."""
+    from src.service import CheckvistService
+    service = CheckvistService(None)
+    large_tree = [{"data": {"id": i}, "children": []} for i in range(70)]
+    truncated = service._truncate_list(large_tree, limit=50)
+    assert len(truncated) == 50
+    assert truncated[0]["data"]["id"] == 0
+    assert truncated[49]["data"]["id"] == 49
+
+def test_secret_masker_filter():
+    """Verify that sensitive keys are masked in log records."""
+    from src.logging_util import SecretMasker
+    import logging
+    
+    masker = SecretMasker()
+    
+    # Test remote_key masking
+    msg1 = "Authenticating with remote_key=SECRET_KEY&version=2"
+    record1 = logging.LogRecord("test", logging.INFO, "path", 10, msg1, None, None)
+    masker.filter(record1)
+    assert "remote_key=[MASKED]" in record1.msg
+    assert "SECRET_KEY" not in record1.msg
+    
+    # Test X-Client-Token masking (JSON-like)
+    msg2 = "Headers: {'X-Client-Token': 'TOKEN_123'}"
+    record2 = logging.LogRecord("test", logging.INFO, "path", 10, msg2, None, None)
+    masker.filter(record2)
+    assert "[MASKED]" in record2.msg
+    assert "TOKEN_123" not in record2.msg
+    assert "X-Client-Token" in record2.msg

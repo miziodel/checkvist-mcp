@@ -351,7 +351,8 @@ async def test_safe_id_validation():
     data = json.loads(res)
     assert data["success"] is False
     assert "Invalid list ID" in data["message"]
-    assert "numeric" in data.get("next_steps", "").lower()
+    assert data["error_code"] == "E004"
+    assert "numeric" in data.get("suggestion", "").lower()
     
     # Test move_task_tool with invalid target_list_id
     res = await move_task_tool("100", "200", target_list_id="TRASH", confirmed=True)
@@ -394,3 +395,4 @@ async def test_bug_010_move_task_cross_list_parent_id():
         
         data = json.loads(result)
         assert data["success"] is True
+

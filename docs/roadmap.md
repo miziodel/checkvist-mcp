@@ -27,15 +27,8 @@ See [changelog.md](changelog.md) for details.
 ---
 
 ## 📅 Phase 1.3: Architectural Excellence (The "Model" Sprint)
-**Status**: Ongoing (2026-02-14)
-See [changelog.md](changelog.md) for details on **Pydantic Models** and **Smart Syntax Engine**.
-- [ ] **MCP-002: Structural Sampling & Context Guard**
-  - Implement proactive truncation for lists > 100 items to protect the agent context window.
-- [ ] **SAFE-001: Security Hardening & Secret Masking**
-  - Implement custom logging filter to mask `X-Client-Token` and `remote_key`.
-  - Unified `wrap_data` application to ALL tools returning user content (Mitigate Prompt Injection).
-  
-  **Success Metric**: 100% type-safe data flow; Zero leaks of secrets in logs; Standardized security wrapping across all tools.
+**Status**: Completed (2026-02-20)
+See [changelog.md](changelog.md) for details (v0.3.0: Pydantic Models, Smart Syntax; v1.3.0: Context Guard, Security Hardening).
 
 ---
 
@@ -43,8 +36,6 @@ See [changelog.md](changelog.md) for details on **Pydantic Models** and **Smart 
 **Goal**: Full semantic understanding and proactive agentic assistance.
 **Timeline**: 3-6 Months
 
-- [x] **Task Styling & Aesthetics (Forensics Phase)**
-  - [x] Support for Priority Colors (marks) and Boldness via native `details` endpoint.
 - [ ] **PARA Recognition (Semantic)**
   - Use LLM/Embeddings to categorize items into PARA even without clear prefixes.
 - [ ] **Smart Linking (Semantic)**

@@ -1,5 +1,14 @@
 import json
-from typing import Any, Optional
+from typing import Any, Optional, Union
+from pydantic import BaseModel
+
+class ErrorResponse(BaseModel):
+    success: bool = False
+    error_code: str
+    message: str
+    suggestion: Optional[str] = None
+    action: Optional[str] = None
+    error_details: Optional[str] = None
 
 class StandardResponse:
     @staticmethod
@@ -13,13 +22,17 @@ class StandardResponse:
         return json.dumps(payload, indent=2)
 
     @staticmethod
-    def error(message: str, action: str, next_steps: str, error_details: Optional[str] = None) -> str:
-        payload = {
-            "success": False,
-            "message": message,
-            "action": action,
-            "next_steps": next_steps
-        }
-        if error_details:
-            payload["error_details"] = error_details
-        return json.dumps(payload, indent=2)
+    def error(message: str, error_code: str, strategy: str = None, action: str = None, error_details: Optional[str] = None) -> str:
+        """
+        [BREAKING v1.3] Standardized error format.
+        error_code: E001 (Auth), E002 (Found), E003 (Rate), E004 (Internal)
+        strategy: Replaced 'next_steps' with suggestion-driven strategy.
+        """
+        payload = ErrorResponse(
+            error_code=error_code,
+            message=message,
+            suggestion=strategy,
+            action=action,
+            error_details=error_details
+        )
+        return payload.model_dump_json(indent=2)

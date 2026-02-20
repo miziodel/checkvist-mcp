@@ -10,7 +10,7 @@ class Task(BaseModel):
     list_id: Optional[int] = Field(None, alias="list_id")
     priority: Optional[int] = Field(0, validation_alias=AliasChoices("priority", "mark"))
     tags: List[str] = Field(default_factory=list)
-    due_date: Optional[str] = Field(None, alias="due")
+    due_date: Optional[str] = Field(None, validation_alias=AliasChoices("due_date", "due"))
     status: int = 0 # 0 = open, 1 = closed
     notes_count: int = 0
     comments_count: int = 0
